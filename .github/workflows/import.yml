@@ -10,13 +10,16 @@ on:
 jobs:
   import:
     runs-on: macos-latest
+    env:
+      MAIN_REPO_OWNER: BranchMetrics
+      MAIN_REPO_REPO: ios-branch-deep-linking-attribution
     steps:
       - name: Check out SPM repo
         uses: actions/checkout@v2
       - name: Check out main iOS repo
         uses: actions/checkout@v2
         with:
-          repository: BranchMetrics/ios-branch-deep-linking-attribution
+          repository: ${{ env.MAIN_REPO_OWNER }}/${{ env.MAIN_REPO_REPO }}
           ref: ${{ github.event.inputs.tag }}
           path: .ios-repo
       - name: Import release ${{ github.event.inputs.tag }}
@@ -31,10 +34,12 @@ jobs:
           script: |
             const tag = '${{ github.event.inputs.tag }}';
             const sha = '${{ steps.import-release.outputs.sha }}';
+            const mainRepoOwner = '${{ env.MAIN_REPO_OWNER }}';
+            const mainRepoRepo = '${{ env.MAIN_REPO_REPO }}';
 
             const { data } = await github.repos.getReleaseByTag({
-              owner: 'BranchMetrics',
-              repo: 'ios-branch-deep-lining-attribution',
+              owner: mainRepoOwner,
+              repo: mainRepoRepo,
               tag,
             });
 
