@@ -25,7 +25,7 @@ runs:
         # clear out the entire repo. * matches everything but .*
         git rm -fr *
 
-        # cannot git rm -fr .* because of ., .., .git, .ios-spm
+        # cannot git rm -fr .* because of ., .., .git, .ios-repo
         # remove specific paths
         [[ -d .swiftpm ]] && git rm -fr .swiftpm
         [[ -f .cocoadocs ]] && git rm -f .cocoadocs
