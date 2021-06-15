@@ -1,5 +1,28 @@
 Branch iOS SDK Change Log
 
+v1.38.0
+Feb. 10, 2021
+
+CORE-1608
+Switch to semantic versioning.
+
+CORE-1677
+Add a static xcframework.
+The pre-built static xcframework is Branch_static.zip attached to the github release page. Note that tvOS does not support static frameworks.
+
+CORE-1626
+Remove some non-inclusive terms.
+The method 'addWhiteListedScheme' is now named 'addAllowedScheme'
+The method 'setWhiteListedSchemes' is now named 'setAllowedSchemes'
+
+SDK-1111
+The method to obtain last attributed touch data now includes an NSError in the completion block.
+
+- (void)lastAttributedTouchDataWithAttributionWindow:(NSInteger)window completion:(void(^) (BranchLastAttributedTouchData * _Nullable latd, NSError * _Nullable error))completion;
+
+SDK-1106
+Remove old data transfer code. Addresses a potential crash.
+
 v0.37.0
 January 20, 2021
 
@@ -14,7 +37,7 @@ See Facebook's documentation on advanced matching for details on valid parameter
 CORE-1316
 Add support for xcframework.
 Branch.xcframework has replaced Branch.framework. iOS and tvOS are both included in the same xcframework. 
-The pre-built xcframework is Branch.zip in the carthage-files folder.
+The pre-built xcframework is Branch.zip attached to the github release page.
 Carthage integrations require the '--use-xcframeworks' flag. This feature is not yet in the general carthage release, you will need to install carthage from source.
 
 Thread safety improvement to server performance metrics. Thanks benski!
