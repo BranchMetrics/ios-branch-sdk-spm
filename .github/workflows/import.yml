@@ -31,6 +31,13 @@ jobs:
           script: |
             const tag = '${{ github.event.inputs.tag }}';
             const sha = '${{ steps.import-release.outputs.sha }}';
+
+            const { data } = await github.repos.getReleaseByTag({
+              owner: 'BranchMetrics',
+              repo: 'ios-branch-deep-lining-attribution',
+              tag,
+            });
+
             await github.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -38,4 +45,5 @@ jobs:
               tag_name: tag,
               name: tag,
               body: `Mirror of https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/releases/${tag}`,
+              prerelease: data.prelease,
             });
