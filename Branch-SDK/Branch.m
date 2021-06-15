@@ -44,6 +44,7 @@
 #import "BNCSKAdNetwork.h"
 #import "BNCAppGroupsData.h"
 #import "BNCPartnerParameters.h"
+#import "BranchEvent.h"
 
 #if !TARGET_OS_TV
 #import "BNCUserAgentCollector.h"
@@ -967,6 +968,32 @@ static BOOL bnc_enableFingerprintIDInCrashlyticsReports = YES;
 
 - (void)setAppClipAppGroup:(NSString *)appGroup {
     [BNCAppGroupsData shared].appGroup = appGroup;
+}
+
+- (void)handleATTAuthorizationStatus:(NSUInteger)status {
+    // limits impact if the client fails to check that status = notDetermined before calling
+    if ([BNCPreferenceHelper preferenceHelper].hasCalledHandleATTAuthorizationStatus) {
+        return;
+    } else {
+        [BNCPreferenceHelper preferenceHelper].hasCalledHandleATTAuthorizationStatus = YES;
+    }
+    
+    BranchEvent *event;
+    switch (status) {
+        case 2:
+            // denied
+            event = [BranchEvent standardEvent:BranchStandardEventOptOut];
+            break;
+        case 3:
+            // authorized
+            event = [BranchEvent standardEvent:BranchStandardEventOptIn];
+            break;
+        default:
+            break;
+    }
+    if (event) {
+        [event logEvent];
+    }
 }
 
 - (void)setSKAdNetworkCalloutMaxTimeSinceInstall:(NSTimeInterval)maxTimeInterval {
