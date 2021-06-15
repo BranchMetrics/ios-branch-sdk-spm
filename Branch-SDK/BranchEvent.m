@@ -73,7 +73,7 @@ BranchStandardEvent BranchStandardEventReserve                = @"RESERVE";
 - (void)processResponse:(BNCServerResponse*)response error:(NSError*)error {
 	NSDictionary *dictionary = ([response.data isKindOfClass:[NSDictionary class]])
 		? (NSDictionary*) response.data : nil;
-	
+    
     if (dictionary && [dictionary[BRANCH_RESPONSE_KEY_UPDATE_CONVERSION_VALUE] isKindOfClass:NSNumber.class]) {
         NSNumber *conversionValue = (NSNumber *)dictionary[BRANCH_RESPONSE_KEY_UPDATE_CONVERSION_VALUE];
         if (conversionValue) {
@@ -230,7 +230,7 @@ BranchStandardEvent BranchStandardEventReserve                = @"RESERVE";
 
 - (void)logEventWithCompletion:(void (^_Nullable)(BOOL success, NSError * _Nullable error))completion {
     if (![_eventName isKindOfClass:[NSString class]] || _eventName.length == 0) {
-        BNCLogError(@"Invalid event type '%@' or empty string.", NSStringFromClass(_eventName.class));
+        BNCLogError([NSString stringWithFormat:@"Invalid event type '%@' or empty string.", NSStringFromClass(_eventName.class)]);
         if (completion) {
             NSError *error = [NSError branchErrorWithCode:BNCGeneralError localizedMessage: @"Invalid event type"];
             completion(NO, error);

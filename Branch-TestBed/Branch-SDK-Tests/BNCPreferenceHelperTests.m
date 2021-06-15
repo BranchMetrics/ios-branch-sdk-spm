@@ -50,4 +50,15 @@
     XCTAssertTrue([customBlacklistURL isEqualToString:self.prefHelper.branchBlacklistURL]);
 }
 
+// only verifies that the flag is stored correctly
+// there are no tests to verify close calls are sent or omitted
+- (void)testSendCloseRequests {
+    XCTAssertFalse(self.prefHelper.sendCloseRequests);
+    [self.prefHelper setSendCloseRequests:YES];
+    XCTAssertTrue(self.prefHelper.sendCloseRequests);
+    
+    // restore to default
+    [self.prefHelper setSendCloseRequests:NO];
+}
+
 @end

@@ -15,7 +15,6 @@
 #import "BNCCallbacks.h"
 #import "BNCCommerceEvent.h"
 #import "BNCConfig.h"
-#import "BNCDebug.h"
 #import "NSError+Branch.h"
 #import "BNCLinkCache.h"
 #import "BNCLog.h"
@@ -676,6 +675,13 @@ typedef NS_ENUM(NSUInteger, BranchCreditHistoryOrder) {
  Apple returns test data for all calls made to the Apple Search Ads API on developer and testflight builds.
  */
 - (void)ignoreAppleSearchAdsTestData;
+
+/**
+ Set the AppGroup used to share data between the App Clip and the Full App.
+ 
+ This must be set before initSession is called.
+ */
+- (void)setAppClipAppGroup:(NSString *)appGroup;
 
 /**
  Set time window for SKAdNetwork callouts.  By default, Branch limits calls to SKAdNetwork to within 72 hours after first install.

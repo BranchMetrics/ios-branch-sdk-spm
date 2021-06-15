@@ -22,6 +22,7 @@
 #import "BranchContentDiscoverer.h"
 #import "BranchCreditHistoryRequest.h"
 #import "BranchInstallRequest.h"
+#import "BranchJsonConfig.h"
 #import "BranchLoadRewardsRequest.h"
 #import "BranchLogoutRequest.h"
 #import "BranchOpenRequest.h"
@@ -41,6 +42,7 @@
 #import "BNCDeviceInfo.h"
 #import "BNCCallbackMap.h"
 #import "BNCSKAdNetwork.h"
+#import "BNCAppGroupsData.h"
 
 #if !TARGET_OS_TV
 #import "BNCUserAgentCollector.h"
@@ -154,65 +156,6 @@ typedef NS_ENUM(NSInteger, BNCInitStatus) {
 
 #pragma mark - GetInstance methods
 
-static NSURL* bnc_logURL = nil;
-
-+ (void)openLog {
-    // Initialize the log
-    @synchronized (self) {
-        if (bnc_logURL) {
-            #if defined(BNCKeepLogfiles)
-                BNCLogSetOutputToURLByteWrap(bnc_logURL, 102400);
-            #else
-                BNCLogSetOutputFunction(NULL);
-            #endif
-        } else {
-            BNCLogInitialize();
-            BNCLogSetDisplayLevel(BNCLogLevelAll);
-            bnc_logURL = BNCURLForBranchDirectory();
-            bnc_logURL = [[NSURL alloc] initWithString:@"Branch.log" relativeToURL:bnc_logURL];
-            #if defined(BNCKeepLogfiles)
-                BNCLogSetOutputToURLByteWrap(bnc_logURL, 102400);
-            #else
-                BNCLogSetOutputFunction(NULL);
-                if (bnc_logURL)
-                    [[NSFileManager defaultManager] removeItemAtURL:bnc_logURL error:nil];
-            #endif
-            BNCLogSetDisplayLevel(BNCLogLevelWarning);  // Default
-
-            // Try loading from the Info.plist
-            NSString *logLevelString = [[NSBundle mainBundle] infoDictionary][@"BranchLogLevel"];
-            if ([logLevelString isKindOfClass:[NSString class]]) {
-                BNCLogLevel logLevel = BNCLogLevelFromString(logLevelString);
-                BNCLogSetDisplayLevel(logLevel);
-            }
-
-            // Try loading from user defaults
-            NSNumber *logLevel = [[NSUserDefaults standardUserDefaults] objectForKey:BNCLogLevelKey];
-            if ([logLevel isKindOfClass:[NSNumber class]]) {
-                BNCLogSetDisplayLevel([logLevel integerValue]);
-            }
-
-            BNCLog(@"Branch version %@ started at %@.", BNC_SDK_VERSION, [NSDate date]);
-        }
-    }
-}
-
-+ (void)closeLog {
-    BNCLogCloseLogFile();
-}
-
-void BranchClassInitializeLog(void);
-void BranchClassInitializeLog(void) {
-    [Branch openLog];
-}
-
-+ (void)load {
-    static dispatch_once_t onceToken = 0;
-    dispatch_once(&onceToken, ^{
-        BNCLogSetClientInitializeFunction(BranchClassInitializeLog);
-    });
-}
-
 // deprecated
 + (Branch *)getTestInstance {
     Branch.useTestBranchKey = YES;
@@ -277,6 +220,22 @@ void BranchClassInitializeLog(void) {
     // queue up async data loading
     [self loadApplicationData];
     [self loadUserAgent];
+    
+    BranchJsonConfig *config = BranchJsonConfig.instance;
+    
+    if (config.delayInitToCheckForSearchAds) {
+        [self delayInitToCheckForSearchAds];
+    }
+
+    if (config.enableFacebookLinkCheck) {
+        Class FBSDKAppLinkUtility = NSClassFromString(@"FBSDKAppLinkUtility");
+        if (FBSDKAppLinkUtility) {
+            [self registerFacebookDeepLinkingClass:FBSDKAppLinkUtility];
+        }
+        else {
+            BNCLogWarning(@"FBSDKAppLinkUtility not found but enableFacebookLinkCheck set to true. Please be sure you have integrated the Facebook SDK.");
+        }
+    }
 
     return self;
 }
@@ -290,9 +249,9 @@ static Class bnc_networkServiceClass = NULL;
             return;
         }
         if (![networkServiceClass conformsToProtocol:@protocol(BNCNetworkServiceProtocol)]) {
-            BNCLogError(@"Class '%@' doesn't conform to protocol '%@'.",
+            BNCLogError([NSString stringWithFormat:@"Class '%@' doesn't conform to protocol '%@'.",
                 NSStringFromClass(networkServiceClass),
-                NSStringFromProtocol(@protocol(BNCNetworkServiceProtocol))
+                NSStringFromProtocol(@protocol(BNCNetworkServiceProtocol))]
             );
             return;
         }
@@ -371,7 +330,7 @@ static BOOL bnc_enableFingerprintIDInCrashlyticsReports = YES;
     [self setBranchKey:branchKey error:&error];
 
     if (error) {
-        BNCLogError(@"Branch init error: %@", error.localizedDescription);
+        BNCLogError([NSString stringWithFormat:@"Branch init error: %@", error.localizedDescription]);
     }
 }
 
@@ -420,15 +379,23 @@ static BOOL bnc_enableFingerprintIDInCrashlyticsReports = YES;
 + (NSString *)branchKey {
     @synchronized (self) {
         if (bnc_branchKey) return bnc_branchKey;
-
-        NSDictionary *branchDictionary = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"branch_key"];
+        
         NSString *branchKey = nil;
-        if ([branchDictionary isKindOfClass:[NSString class]]) {
-            branchKey = (NSString*) branchDictionary;
-        } else
-        if ([branchDictionary isKindOfClass:[NSDictionary class]]) {
-            branchKey =
-                (self.useTestBranchKey) ? branchDictionary[@"test"] : branchDictionary[@"live"];
+        
+        BranchJsonConfig *config = BranchJsonConfig.instance;
+        BOOL usingTestInstance = bnc_useTestBranchKey || config.useTestInstance;
+        branchKey = config.branchKey ?: usingTestInstance ? config.testKey : config.liveKey;
+        [self setUseTestBranchKey:usingTestInstance];
+        
+        if (branchKey == nil) {
+            NSDictionary *branchDictionary = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"branch_key"];
+            if ([branchDictionary isKindOfClass:[NSString class]]) {
+                branchKey = (NSString*) branchDictionary;
+            } else
+            if ([branchDictionary isKindOfClass:[NSDictionary class]]) {
+                branchKey =
+                    (self.useTestBranchKey) ? branchDictionary[@"test"] : branchDictionary[@"live"];
+            }
         }
 
         self.branchKey = branchKey;
@@ -995,6 +962,10 @@ static BOOL bnc_enableFingerprintIDInCrashlyticsReports = YES;
         dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
     });
     #endif
+}
+
+- (void)setAppClipAppGroup:(NSString *)appGroup {
+    [BNCAppGroupsData shared].appGroup = appGroup;
 }
 
 - (void)setSKAdNetworkCalloutMaxTimeSinceInstall:(NSTimeInterval)maxTimeInterval {
@@ -1888,8 +1859,6 @@ static BOOL bnc_enableFingerprintIDInCrashlyticsReports = YES;
         [self.requestQueue persistImmediately];
         [BranchOpenRequest setWaitNeededForOpenResponseLock];
         BNCLogDebugSDK(@"Application resigned active.");
-        [self.class closeLog];
-        [self.class openLog];
     }
 }
 
@@ -1900,7 +1869,8 @@ static BOOL bnc_enableFingerprintIDInCrashlyticsReports = YES;
         BranchContentDiscoverer *contentDiscoverer = [BranchContentDiscoverer getInstance];
         if (contentDiscoverer) [contentDiscoverer stopDiscoveryTask];
 
-        if (self.preferenceHelper.sessionID && ![self.requestQueue containsClose]) {
+        BOOL sendCloseRequests = [[BNCPreferenceHelper preferenceHelper] sendCloseRequests];
+        if (sendCloseRequests && self.preferenceHelper.sessionID && ![self.requestQueue containsClose]) {
             BranchCloseRequest *req = [[BranchCloseRequest alloc] init];
             [self.requestQueue enqueue:req];
             [self processNextQueueItem];
@@ -2057,7 +2027,6 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
                         [req processResponse:nil error:[NSError branchErrorWithCode:BNCInitError]];
                     });
                     return;
-
                 }
             }
 
@@ -2259,8 +2228,8 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
             [branchSharingController configureControlWithData:latestReferringParams];
         }
         else {
-            BNCLogWarning(@"The automatic deeplink view controller '%@' for key '%@' does not implement 'configureControlWithData:'.",
-                branchSharingController, key);
+            BNCLogWarning([NSString stringWithFormat:@"The automatic deeplink view controller '%@' for key '%@' does not implement 'configureControlWithData:'.",
+                branchSharingController, key]);
         }
 
         self.deepLinkPresentingController = [UIViewController bnc_currentViewController];

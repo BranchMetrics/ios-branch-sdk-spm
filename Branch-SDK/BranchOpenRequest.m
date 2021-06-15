@@ -19,6 +19,7 @@
 #import "BNCAppleReceipt.h"
 #import "BNCTuneUtility.h"
 #import "BNCSKAdNetwork.h"
+#import "BNCAppGroupsData.h"
 
 @interface BranchOpenRequest ()
 @property (assign, nonatomic) BOOL isInstall;
@@ -152,6 +153,7 @@ typedef NS_ENUM(NSInteger, BNCUpdateState) {
     preferenceHelper.sessionID = data[BRANCH_RESPONSE_KEY_SESSION_ID];
     preferenceHelper.previousAppBuildDate = [BNCApplication currentApplication].currentBuildDate;
 
+    
     if ([data[BRANCH_RESPONSE_KEY_INVOKE_REGISTER_APP] isKindOfClass:NSNumber.class]) {
         NSNumber *invokeRegister = (NSNumber *)data[BRANCH_RESPONSE_KEY_INVOKE_REGISTER_APP];
         if (invokeRegister.boolValue) {
@@ -169,17 +171,17 @@ typedef NS_ENUM(NSInteger, BNCUpdateState) {
     if (sessionData == nil || [sessionData isKindOfClass:[NSString class]]) {
     } else
     if ([sessionData isKindOfClass:[NSDictionary class]]) {
-        BNCLogWarning(@"Received session data of type '%@' data is '%@'.",
-            NSStringFromClass(sessionData.class), sessionData);        
+        BNCLogWarning([NSString stringWithFormat:@"Received session data of type '%@' data is '%@'.",
+            NSStringFromClass(sessionData.class), sessionData]);
         sessionData = [BNCEncodingUtils encodeDictionaryToJsonString:(NSDictionary*)sessionData];
     } else
     if ([sessionData isKindOfClass:[NSArray class]]) {
-        BNCLogWarning(@"Received session data of type '%@' data is '%@'.",
-            NSStringFromClass(sessionData.class), sessionData);
+        BNCLogWarning([NSString stringWithFormat:@"Received session data of type '%@' data is '%@'.",
+            NSStringFromClass(sessionData.class), sessionData]);
         sessionData = [BNCEncodingUtils encodeArrayToJsonString:(NSArray*)sessionData];
     } else {
-        BNCLogError(@"Received session data of type '%@' data is '%@'.",
-            NSStringFromClass(sessionData.class), sessionData);
+        BNCLogError([NSString stringWithFormat:@"Received session data of type '%@' data is '%@'.",
+            NSStringFromClass(sessionData.class), sessionData]);
         sessionData = nil;
     }
 
@@ -252,7 +254,11 @@ typedef NS_ENUM(NSInteger, BNCUpdateState) {
     if ([cdManifest isCDEnabled]) {
         [[BranchContentDiscoverer getInstance] startDiscoveryTaskWithManifest:cdManifest];
     }
-
+    
+    if (self.isInstall) {
+        [[BNCAppGroupsData shared] saveAppClipData];
+    }
+    
     if (self.callback) {
         self.callback(YES, nil);
     }
