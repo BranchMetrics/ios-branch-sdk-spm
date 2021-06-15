@@ -1,0 +1,30 @@
+# Mac
+.DS_Store
+.LSOverride
+
+# Xcode
+[Bb]uild
+*.xcuserstate
+*.xcuserdatad
+# *.xcscmblueprint # We should probably check this in.
+*.o
+
+# merge-repo commit/discard file
+merge-repo-commit
+
+# Pods
+Pods/
+
+# Carthage
+carthage-files/*.zip
+carthage-files/Carthage
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Ruby stuff
+vendor
+.bundle

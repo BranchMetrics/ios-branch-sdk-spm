@@ -32,7 +32,7 @@ runs:
         [[ -f .gitignore ]] && git rm -f .gitignore
 
         # Now copy in the entire iOS repo
-        cp -pR .ios-repo/* .ios-repo/.swift* .ios-repo/.cocoa* .
+        cp -pR .ios-repo/* .ios-repo/.swift* .ios-repo/.cocoa* .ios-repo/.gitignore .
 
         # Scrub out any binaries from early commits
         [[ -d carthage-files/output ]] && rm -fr carthage-files/output
