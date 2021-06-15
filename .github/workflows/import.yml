@@ -49,6 +49,6 @@ jobs:
               target_commitish: sha,
               tag_name: tag,
               name: tag,
-              body: `Mirror of https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/releases/${tag}`,
+              body: `Mirror of https://github.com/${mainRepoOwner}/${mainRepoRepo}/releases/${tag}`,
               prerelease: data.prelease,
             });
