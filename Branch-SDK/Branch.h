@@ -645,7 +645,7 @@ typedef NS_ENUM(NSUInteger, BranchCreditHistoryOrder) {
 
             These are ICU standard regular expressions.
 */
-@property (copy, nullable) NSArray<NSString*>/*_Nullable*/* blackListURLRegex;
+@property (copy, nullable) NSArray<NSString*>/*_Nullable*/* urlPatternsToIgnore;
 
 /**
  Register your Facebook SDK's FBSDKAppLinkUtility class to be used by Branch for deferred deep linking from their platform
@@ -689,6 +689,19 @@ typedef NS_ENUM(NSUInteger, BranchCreditHistoryOrder) {
  Note: Branch does not automatically call SKAdNetwork unless configured on the dashboard.
  */
 - (void)setSKAdNetworkCalloutMaxTimeSinceInstall:(NSTimeInterval)maxTimeInterval;
+
+/*
+ Add a Partner Parameter for Facebook.
+ Once set, this parameter is attached to install, opens and events until cleared or the app restarts.
+ 
+ See Facebook's documentation for details on valid parameters
+ */
+- (void)addFacebookPartnerParameterWithName:(NSString *)name value:(NSString *)value;
+
+/**
+ Clears all Partner Parameters
+ */
+- (void)clearPartnerParameters;
 
 /**
  Specify the time to wait in seconds between retries in the case of a Branch server error

@@ -37,12 +37,13 @@
 #import "NSString+Branch.h"
 #import "Branch+Validator.h"
 #import "BNCApplication.h"
-#import "BNCURLBlackList.h"
+#import "BNCURLFilter.h"
 #import "BNCFacebookAppLinks.h"
 #import "BNCDeviceInfo.h"
 #import "BNCCallbackMap.h"
 #import "BNCSKAdNetwork.h"
 #import "BNCAppGroupsData.h"
+#import "BNCPartnerParameters.h"
 
 #if !TARGET_OS_TV
 #import "BNCUserAgentCollector.h"
@@ -122,7 +123,7 @@ typedef NS_ENUM(NSInteger, BNCInitStatus) {
 
 @interface Branch() <BranchDeepLinkingControllerCompletionDelegate> {
     NSInteger _networkCount;
-    BNCURLBlackList *_userURLBlackList;
+    BNCURLFilter *_userURLFilter;
 }
 
 // This isolation queue protects branch initialization and ensures things are processed in order.
@@ -140,7 +141,7 @@ typedef NS_ENUM(NSInteger, BNCInitStatus) {
 @property (weak,   nonatomic) UIViewController *deepLinkPresentingController;
 @property (strong, nonatomic) NSDictionary *deepLinkDebugParams;
 @property (strong, nonatomic) NSMutableArray *whiteListedSchemeList;
-@property (strong, nonatomic) BNCURLBlackList *URLBlackList;
+@property (strong, nonatomic) BNCURLFilter *urlFilter;
 
 #if !TARGET_OS_TV
 @property (strong, nonatomic) BNCContentDiscoveryManager *contentDiscoveryManager;
@@ -199,7 +200,7 @@ typedef NS_ENUM(NSInteger, BNCInitStatus) {
     #endif
 
     self.class.branchKey = key;
-    self.URLBlackList = [BNCURLBlackList new];
+    self.urlFilter = [BNCURLFilter new];
 
     [BranchOpenRequest setWaitNeededForOpenResponseLock];
 
@@ -672,16 +673,16 @@ static BOOL bnc_enableFingerprintIDInCrashlyticsReports = YES;
     [self.whiteListedSchemeList addObject:scheme];
 }
 
-- (void)setBlackListURLRegex:(NSArray<NSString*>*)blackListURLs {
+- (void)setUrlPatternsToIgnore:(NSArray<NSString*>*)urlsToIgnore {
     @synchronized (self) {
-        _userURLBlackList = [[BNCURLBlackList alloc] init];
-        _userURLBlackList.blackList = blackListURLs;
+        _userURLFilter = [[BNCURLFilter alloc] init];
+        _userURLFilter.patternList = urlsToIgnore;
     }
 }
 
-- (NSArray<NSString *> *)blackListURLRegex {
+- (NSArray<NSString *> *)urlPatternsToIgnore {
     @synchronized (self) {
-        return _userURLBlackList.blackList;
+        return _userURLFilter.patternList;
     }
 }
 
@@ -700,15 +701,15 @@ static BOOL bnc_enableFingerprintIDInCrashlyticsReports = YES;
     // this allows foreground links to callback
     self.initializationStatus = BNCInitStatusUninitialized;
 
-    NSString *blackListPattern = nil;
-    blackListPattern = [self.URLBlackList blackListPatternMatchingURL:url];
-    if (!blackListPattern) {
-        blackListPattern = [_userURLBlackList blackListPatternMatchingURL:url];
+    NSString *pattern = nil;
+    pattern = [self.urlFilter patternMatchingURL:url];
+    if (!pattern) {
+        pattern = [_userURLFilter patternMatchingURL:url];
     }
-    if (blackListPattern) {
-        self.preferenceHelper.blacklistURLOpen = YES;
-        self.preferenceHelper.externalIntentURI = blackListPattern;
-        self.preferenceHelper.referringURL = blackListPattern;
+    if (pattern) {
+        self.preferenceHelper.dropURLOpen = YES;
+        self.preferenceHelper.externalIntentURI = pattern;
+        self.preferenceHelper.referringURL = pattern;
 
         [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier];
         return NO;
@@ -970,6 +971,16 @@ static BOOL bnc_enableFingerprintIDInCrashlyticsReports = YES;
 
 - (void)setSKAdNetworkCalloutMaxTimeSinceInstall:(NSTimeInterval)maxTimeInterval {
     [BNCSKAdNetwork sharedInstance].maxTimeSinceInstall = maxTimeInterval;
+}
+
+#pragma mark - Partner Parameters
+
+- (void)clearPartnerParameters {
+    [[BNCPartnerParameters shared] clearAllParameters];
+}
+
+- (void)addFacebookPartnerParameterWithName:(NSString *)name value:(NSString *)value {
+    [[BNCPartnerParameters shared] addFaceBookParameterWithName:name value:value];
 }
 
 #pragma mark - Pre-initialization support
@@ -2201,8 +2212,8 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
     }
     [self sendOpenNotificationWithLinkParameters:latestReferringParams error:nil];
 
-    if (!self.URLBlackList.hasRefreshedBlackListFromServer) {
-        [self.URLBlackList refreshBlackListFromServerWithCompletion:nil];
+    if (!self.urlFilter.hasUpdatedPatternList) {
+        [self.urlFilter updatePatternListWithCompletion:nil];
     }
 
     if (self.shouldAutomaticallyDeepLink) {

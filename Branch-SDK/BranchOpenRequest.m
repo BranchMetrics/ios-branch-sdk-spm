@@ -20,6 +20,7 @@
 #import "BNCTuneUtility.h"
 #import "BNCSKAdNetwork.h"
 #import "BNCAppGroupsData.h"
+#import "BNCPartnerParameters.h"
 
 @interface BranchOpenRequest ()
 @property (assign, nonatomic) BOOL isInstall;
@@ -85,6 +86,11 @@
                     forKey:BRANCH_REQUEST_KEY_SEARCH_AD
                     onDict:params];
     }
+    
+    NSDictionary *partnerParameters = [[BNCPartnerParameters shared] parameterJson];
+    if (partnerParameters.count > 0) {
+        [self safeSetValue:partnerParameters forKey:BRANCH_REQUEST_KEY_PARTNER_PARAMETERS onDict:params];
+    }
 
     BNCApplication *application = [BNCApplication currentApplication];
     params[@"lastest_update_time"] = BNCWireFormatFromDate(application.currentBuildDate);
@@ -122,7 +128,7 @@ typedef NS_ENUM(NSInteger, BNCUpdateState) {
 
 - (void)processResponse:(BNCServerResponse *)response error:(NSError *)error {
     BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper preferenceHelper];
-    if (error && preferenceHelper.blacklistURLOpen) {
+    if (error && preferenceHelper.dropURLOpen) {
         // Ignore this response from the server. Dummy up a response:
         error = nil;
         response.data = @{
@@ -242,7 +248,7 @@ typedef NS_ENUM(NSInteger, BNCUpdateState) {
     preferenceHelper.externalIntentURI = nil;
     preferenceHelper.appleSearchAdNeedsSend = NO;
     preferenceHelper.referringURL = referringURL;
-    preferenceHelper.blacklistURLOpen = NO;
+    preferenceHelper.dropURLOpen = NO;
 
     NSString *string = BNCStringFromWireFormat(data[BRANCH_RESPONSE_KEY_BRANCH_IDENTITY]);
     if (string) preferenceHelper.identityID = string;

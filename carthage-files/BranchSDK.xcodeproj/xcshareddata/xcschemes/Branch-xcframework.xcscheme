@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1150"
+   LastUpgradeVersion = "1230"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "5F19B4EA24B500D000D7D3CB"
-               BuildableName = "Branch-universal"
-               BlueprintName = "Branch-universal"
+               BlueprintIdentifier = "5F85112825B1452100D544A1"
+               BuildableName = "Branch-xcframework"
+               BlueprintName = "Branch-xcframework"
                ReferencedContainer = "container:BranchSDK.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -31,7 +31,7 @@
       </Testables>
    </TestAction>
    <LaunchAction
-      buildConfiguration = "Release"
+      buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
@@ -50,9 +50,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "5F19B4EA24B500D000D7D3CB"
-            BuildableName = "Branch-universal"
-            BlueprintName = "Branch-universal"
+            BlueprintIdentifier = "5F85112825B1452100D544A1"
+            BuildableName = "Branch-xcframework"
+            BlueprintName = "Branch-xcframework"
             ReferencedContainer = "container:BranchSDK.xcodeproj">
          </BuildableReference>
       </MacroExpansion>

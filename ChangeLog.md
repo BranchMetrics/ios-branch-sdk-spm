@@ -1,5 +1,24 @@
 Branch iOS SDK Change Log
 
+v0.37.0
+January 20, 2021
+
+CORE-1198
+Remove some non-inclusive terms.
+The method 'blackListURLRegex' is now named 'urlPatternsToIgnore'.
+
+CORE-1521
+Add API to attach Facebook partner parameters to Branch install, opens and events.
+See Facebook's documentation on advanced matching for details on valid parameters.
+
+CORE-1316
+Add support for xcframework.
+Branch.xcframework has replaced Branch.framework. iOS and tvOS are both included in the same xcframework. 
+The pre-built xcframework is Branch.zip in the carthage-files folder.
+Carthage integrations require the '--use-xcframeworks' flag. This feature is not yet in the general carthage release, you will need to install carthage from source.
+
+Thread safety improvement to server performance metrics. Thanks benski!
+
 v0.36.0
 November 11, 2020
 
