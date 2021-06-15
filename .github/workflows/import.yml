@@ -1,0 +1,41 @@
+name: Import release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+        description: A release tag from the iOS repo to import
+
+jobs:
+  import:
+    runs-on: macos-latest
+    steps:
+      - name: Check out SPM repo
+        uses: actions/checkout@v2
+      - name: Check out main iOS repo
+        uses: actions/checkout@v2
+        with:
+          repository: BranchMetrics/ios-branch-deep-linking-attribution
+          ref: ${{ github.event.inputs.tag }}
+          path: .ios-repo
+      - name: Import release ${{ github.event.inputs.tag }}
+        id: import-release
+        uses: ./.github/actions/import-release
+        with:
+          tag: ${{ github.event.inputs.tag }}
+      - name: Create release
+        uses: actions/github-script@v4
+        with:
+          result-encoding: string
+          script: |
+            const tag = '${{ github.event.inputs.tag }}';
+            const sha = '${{ steps.import-release.outputs.sha }}';
+            await github.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              target_commitish: sha,
+              tag_name: tag,
+              name: tag,
+              body: `Mirror of https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/releases/${tag}`,
+            });
