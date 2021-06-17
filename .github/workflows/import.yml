@@ -50,5 +50,5 @@ jobs:
               tag_name: tag,
               name: tag,
               body: `Mirror of https://github.com/${mainRepoOwner}/${mainRepoRepo}/releases/${tag}`,
-              prerelease: data.prelease,
+              prerelease: data.prerelease,
             });
