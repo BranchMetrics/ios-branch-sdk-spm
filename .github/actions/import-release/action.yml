@@ -4,6 +4,10 @@ inputs:
   tag:
     required: true
     description: A tag from the main iOS repo to import
+  ignore-paths:
+    required: false
+    description: A list of paths not to import
+    default: README.md
 outputs:
   sha:
     description: The sha for the generated commit in this repo
@@ -22,28 +26,30 @@ runs:
       id: import-code
       shell: bash
       run: |
-        # clear out the entire repo. * matches everything but .*
-        git rm -fr *
+        # Always ignore ., .., .ios-repo, .github
+        ignore_paths=". .. .git .github .ios-repo ${{ inputs.ignore-paths }}"
 
-        # cannot git rm -fr .* because of ., .., .git, .ios-repo
-        # remove specific paths
-        [[ -d .swiftpm ]] && git rm -fr .swiftpm
-        [[ -f .cocoadocs ]] && git rm -f .cocoadocs
-        [[ -f .gitignore ]] && git rm -f .gitignore
+        # First remove everything in this repo
+        for f in * .*
+        do
+          # https://stackoverflow.com/a/8063398
+          [[ $ignore_paths =~(^|[[:space:]])$f($|[[:space:]]) ]] || git rm -fr $f
+        done
 
         # Now copy in the entire iOS repo
-        cp -pR .ios-repo/* .ios-repo/.swift* .ios-repo/.cocoa* .ios-repo/.gitignore .
+        cd .ios-repo
+        for f in * .*
+        do
+          # https://stackoverflow.com/a/8063398
+          [[ $ignore_paths =~(^|[[:space:]])$f($|[[:space:]]) ]] || cp -r $f ..
+        done
+        cd -
 
         # Scrub out any binaries from early commits
         [[ -d carthage-files/output ]] && rm -fr carthage-files/output
 
         # Now ditch the local copy of the iOS repo
         rm -fr .ios-repo
-
-        # Undo any changes to README.md in this repo
-        # (the original is nearly blank anyway)
-        git reset HEAD README.md
-        git checkout -- README.md
 
         # Add everything again. This results in many unchanged files
         # and only records what's changed since the last commit (release).
