@@ -1,10 +1,11 @@
 # Swift Package Manager repository for iOS
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FBranchMetrics%2Fios-branch-sdk-spm%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/BranchMetrics/ios-branch-sdk-spm)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FBranchMetrics%2Fios-branch-sdk-spm%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/BranchMetrics/ios-branch-sdk-spm)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/BranchMetrics/ios-branch-sdk-spm)
+![GitHub Release Date](https://img.shields.io/github/release-date/BranchMetrics/ios-branch-sdk-spm)
+[![Unit tests](https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/actions/workflows/verify.yml/badge.svg)](https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/actions/workflows/verify.yml)
 
-_Work in progress_
-
-This is a mirror of the main [iOS repository](https://github.com/BranchMetrics/ios-branch-deep-linking-attribution)
+This is a mirror of the main [Branch Metrics iOS SDK repository](https://github.com/BranchMetrics/ios-branch-deep-linking-attribution)
 for use only with Swift Package Manager. It removes binaries and all commit
 history before release [0.35.0](https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/releases/0.35.0),
 the first release to support SPM. This greatly improves performance when using
