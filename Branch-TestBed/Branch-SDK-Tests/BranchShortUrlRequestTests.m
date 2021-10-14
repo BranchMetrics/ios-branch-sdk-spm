@@ -41,11 +41,11 @@
     [LINK_DATA setupMatchDuration:DURATION];
     [LINK_DATA setupParams:PARAMS];
     
-    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper preferenceHelper];
+    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper sharedInstance];
     NSMutableDictionary * const expectedParams = NSMutableDictionary.new;
     expectedParams[BRANCH_REQUEST_KEY_SESSION_ID] = preferenceHelper.sessionID;
-    expectedParams[BRANCH_REQUEST_KEY_BRANCH_IDENTITY] = preferenceHelper.identityID;
-    expectedParams[BRANCH_REQUEST_KEY_DEVICE_FINGERPRINT_ID] = preferenceHelper.deviceFingerprintID;
+    expectedParams[BRANCH_REQUEST_KEY_RANDOMIZED_BUNDLE_TOKEN] = preferenceHelper.randomizedBundleToken;
+    expectedParams[BRANCH_REQUEST_KEY_RANDOMIZED_DEVICE_TOKEN] = preferenceHelper.randomizedDeviceToken;
     expectedParams[BRANCH_REQUEST_KEY_URL_ALIAS] = ALIAS;
     expectedParams[BRANCH_REQUEST_KEY_URL_CHANNEL] = CHANNEL;
     expectedParams[BRANCH_REQUEST_KEY_URL_DATA] = PARAMS;
@@ -89,11 +89,11 @@
     
     [LINK_DATA setupType:LINK_TYPE];
     
-    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper preferenceHelper];
+    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper sharedInstance];
     NSMutableDictionary * const expectedParams = NSMutableDictionary.new;
     expectedParams[BRANCH_REQUEST_KEY_SESSION_ID] = preferenceHelper.sessionID;
-    expectedParams[BRANCH_REQUEST_KEY_BRANCH_IDENTITY] = preferenceHelper.identityID;
-    expectedParams[BRANCH_REQUEST_KEY_DEVICE_FINGERPRINT_ID] = preferenceHelper.deviceFingerprintID;
+    expectedParams[BRANCH_REQUEST_KEY_RANDOMIZED_BUNDLE_TOKEN] = preferenceHelper.randomizedBundleToken;
+    expectedParams[BRANCH_REQUEST_KEY_RANDOMIZED_DEVICE_TOKEN] = preferenceHelper.randomizedDeviceToken;
     expectedParams[BRANCH_REQUEST_KEY_URL_SOURCE] = @"ios";
     expectedParams[BRANCH_REQUEST_KEY_URL_LINK_TYPE] = @(LINK_TYPE);
 
@@ -177,7 +177,7 @@
         @"%@?tags=%@&tags=%@&alias=%@&channel=%@&feature=%@&stage=%@&type=%ld&duration=%ld&source=ios&data=%@",
         USER_URL, TAG1, TAG2, ALIAS, CHANNEL, FEATURE, STAGE, (long)LINK_TYPE, (long)DURATION, ENCODED_PARAMS];
     
-    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper preferenceHelper];
+    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper sharedInstance];
     preferenceHelper.userUrl = USER_URL;
     
     XCTestExpectation *requestExpecation = [self expectationWithDescription:@"Get Referral Code Request Expectation"];
@@ -220,7 +220,7 @@
     NSString * const STAGE = @"foo-stage";
     NSDictionary * const PARAMS = @{ @"foo-param": @"bar-value" };
     
-    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper preferenceHelper];
+    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper sharedInstance];
     preferenceHelper.userUrl = nil;
     
     XCTestExpectation *requestExpecation =

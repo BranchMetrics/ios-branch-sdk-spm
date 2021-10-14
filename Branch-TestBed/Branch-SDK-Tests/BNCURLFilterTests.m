@@ -22,13 +22,13 @@
 @implementation BNCURLFilterTests
 
 - (void) setUp {
-    [BNCPreferenceHelper preferenceHelper].savedURLPatternList = nil;
-    [BNCPreferenceHelper preferenceHelper].savedURLPatternListVersion = 0;
-    [BNCPreferenceHelper preferenceHelper].dropURLOpen = NO;
+    [BNCPreferenceHelper sharedInstance].savedURLPatternList = nil;
+    [BNCPreferenceHelper sharedInstance].savedURLPatternListVersion = 0;
+    [BNCPreferenceHelper sharedInstance].dropURLOpen = NO;
 }
 
 - (void) tearDown {
-    [BNCPreferenceHelper preferenceHelper].dropURLOpen = NO;
+    [BNCPreferenceHelper sharedInstance].dropURLOpen = NO;
 }
 
 - (void)testListDownLoad {
@@ -156,7 +156,7 @@
             [expectation fulfill];
         }
         else
-        if ([url bnc_containsString:@"install"]) {
+        if ([url containsString:@"install"]) {
             [expectation fulfill];
         }
     });
@@ -164,8 +164,8 @@
     [branch handleDeepLink:[NSURL URLWithString:@"https://myapp.app.link/bob/link?oauth=true"]];
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
     [serverInterfaceMock stopMocking];
-    [BNCPreferenceHelper preferenceHelper].referringURL = nil;
-    [[BNCPreferenceHelper preferenceHelper] synchronize];
+    [BNCPreferenceHelper sharedInstance].referringURL = nil;
+    [[BNCPreferenceHelper sharedInstance] synchronize];
 }
 
 - (void) testUserList {
@@ -196,15 +196,15 @@
             [expectation fulfill];
         }
         else
-        if ([URL bnc_containsString:@"install"]) {
+        if ([URL containsString:@"install"]) {
             [expectation fulfill];
         }
     });
     [branch handleDeepLink:[NSURL URLWithString:@"https://myapp.app.link/bob/link"]];
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
     [serverInterfaceMock stopMocking];
-    [BNCPreferenceHelper preferenceHelper].referringURL = nil;
-    [[BNCPreferenceHelper preferenceHelper] synchronize];
+    [BNCPreferenceHelper sharedInstance].referringURL = nil;
+    [[BNCPreferenceHelper sharedInstance] synchronize];
 }
 
 @end

@@ -9,18 +9,11 @@
 #import "BNCTestCase.h"
 #import "Branch.h"
 
-NSString * const TEST_BRANCH_KEY = @"key_live_78801a996de4287481fe73708cc95da2";
-NSString * const TEST_DEVICE_FINGERPRINT_ID = @"94938498586381084";
-NSString * const TEST_BROWSER_FINGERPRINT_ID = @"69198153995256641";
-NSString * const TEST_IDENTITY_ID = @"95765863201768032";
+NSString * const TEST_RANDOMIZED_DEVICE_TOKEN = @"94938498586381084";
+NSString * const TEST_RANDOMIZED_BUNDLE_TOKEN = @"95765863201768032";
 NSString * const TEST_SESSION_ID = @"97141055400444225";
 NSString * const TEST_IDENTITY_LINK = @"https://bnc.lt/i/3N-xr0E-_M";
-NSString * const TEST_SHORT_URL = @"https://bnc.lt/l/3PxZVFU-BK";
-NSString * const TEST_LOGOUT_IDENTITY_ID = @"98274447349252681";
-NSString * const TEST_NEW_IDENTITY_ID = @"85782216939930424";
-NSString * const TEST_NEW_SESSION_ID = @"98274447370224207";
 NSString * const TEST_NEW_USER_LINK = @"https://bnc.lt/i/2kkbX6k-As";
-NSInteger const  TEST_CREDITS = 30;
 
 @interface BranchSDKFunctionalityTests : BNCTestCase
 @property (assign, nonatomic) BOOL hasExceededExpectations;
@@ -31,7 +24,7 @@ NSInteger const  TEST_CREDITS = 30;
 - (void)test00OpenOrInstall {
     id serverInterfaceMock = OCMClassMock([BNCServerInterface class]);
 
-    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper preferenceHelper];
+    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper sharedInstance];
     Branch.branchKey = @"key_live_foo";
     
     Branch *branch =
@@ -44,9 +37,8 @@ NSInteger const  TEST_CREDITS = 30;
     
     BNCServerResponse *openInstallResponse = [[BNCServerResponse alloc] init];
     openInstallResponse.data = @{
-        @"browser_fingerprint_id": TEST_BROWSER_FINGERPRINT_ID,
-        @"device_fingerprint_id": TEST_DEVICE_FINGERPRINT_ID,
-        @"identity_id": TEST_IDENTITY_ID,
+        @"randomized_device_token": TEST_RANDOMIZED_DEVICE_TOKEN,
+        @"randomized_bundle_token": TEST_RANDOMIZED_BUNDLE_TOKEN,
         @"link": TEST_IDENTITY_LINK,
         @"session_id": TEST_SESSION_ID
     };
@@ -85,7 +77,7 @@ NSInteger const  TEST_CREDITS = 30;
     id serverInterfaceMock = OCMClassMock([BNCServerInterface class]);
     [self setupDefaultStubsForServerInterfaceMock:serverInterfaceMock];
     
-    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper preferenceHelper];
+    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper sharedInstance];
     Branch *branch =
         [[Branch alloc]
             initWithInterface:serverInterfaceMock
@@ -135,144 +127,6 @@ NSInteger const  TEST_CREDITS = 30;
     [serverInterfaceMock verify];
 }
 
-- (void)test04GetRewardsChanged {
-    id serverInterfaceMock = OCMClassMock([BNCServerInterface class]);
-    [self setupDefaultStubsForServerInterfaceMock:serverInterfaceMock];
-    
-    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper preferenceHelper];
-    Branch *branch =
-        [[Branch alloc]
-            initWithInterface:serverInterfaceMock
-            queue:[[BNCServerRequestQueue alloc] init]
-            cache:[[BNCLinkCache alloc] init]
-            preferenceHelper:preferenceHelper
-            key:@"key_live_foo"];
-
-    [preferenceHelper setCreditCount:NSIntegerMax forBucket:@"default"];
-    
-    BNCServerResponse *loadCreditsResponse = [[BNCServerResponse alloc] init];
-    loadCreditsResponse.data = @{ @"default": @(NSIntegerMin) };
-    
-    __block BNCServerCallback loadCreditsCallback;
-    [[[serverInterfaceMock expect] andDo:^(NSInvocation *invocation) {
-        loadCreditsCallback(loadCreditsResponse, nil);
-    }] getRequest:[OCMArg any] url:[preferenceHelper getAPIURL:[NSString stringWithFormat:@"%@/%@", @"credits", preferenceHelper.identityID]] key:[OCMArg any] callback:[OCMArg checkWithBlock:^BOOL(BNCServerCallback callback) {
-        loadCreditsCallback = callback;
-        return YES;
-    }]];
-    
-    XCTestExpectation *getRewardExpectation = [self expectationWithDescription:@"Test getReward"];
-    
-    [branch loadRewardsWithCallback:^(BOOL changed, NSError *error) {
-        XCTAssertNil(error);
-        XCTAssertTrue(changed);
-        
-        [self safelyFulfillExpectation:getRewardExpectation];
-    }];
-    
-    [self awaitExpectations];
-}
-
-- (void)test05GetRewardsUnchanged {
-    id serverInterfaceMock = OCMClassMock([BNCServerInterface class]);
-    [self setupDefaultStubsForServerInterfaceMock:serverInterfaceMock];
-    
-    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper preferenceHelper];
-    Branch *branch =
-        [[Branch alloc]
-            initWithInterface:serverInterfaceMock
-            queue:[[BNCServerRequestQueue alloc] init]
-            cache:[[BNCLinkCache alloc] init]
-            preferenceHelper:preferenceHelper
-            key:@"key_live_foo"];
-
-    [preferenceHelper setCreditCount:1 forBucket:@"default"];
-    
-    BNCServerResponse *loadRewardsResponse = [[BNCServerResponse alloc] init];
-    loadRewardsResponse.data = @{ @"default": @1 };
-    
-    __block BNCServerCallback loadRewardsCallback;
-    [[[serverInterfaceMock expect]
-        andDo:^(NSInvocation *invocation) {
-            loadRewardsCallback(loadRewardsResponse, nil);
-        }]
-        getRequest:[OCMArg any]
-        url:[preferenceHelper
-        getAPIURL:[NSString stringWithFormat:@"%@/%@", @"credits", preferenceHelper.identityID]]
-        key:[OCMArg any]
-        callback:[OCMArg checkWithBlock:^BOOL(BNCServerCallback callback) {
-            loadRewardsCallback = callback;
-            return YES;
-    }]];
-    
-    XCTestExpectation *getRewardExpectation = [self expectationWithDescription:@"Test getReward"];
-    
-    [branch loadRewardsWithCallback:^(BOOL changed, NSError *error) {
-        XCTAssertNil(error);
-        XCTAssertFalse(changed);
-        
-        [self safelyFulfillExpectation:getRewardExpectation];
-    }];
-
-    [self awaitExpectations];
-}
-
-- (void)test12GetCreditHistory {
-    id serverInterfaceMock = OCMClassMock([BNCServerInterface class]);
-    [self setupDefaultStubsForServerInterfaceMock:serverInterfaceMock];
-    
-    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper preferenceHelper];
-    Branch *branch =
-        [[Branch alloc]
-            initWithInterface:serverInterfaceMock
-            queue:[[BNCServerRequestQueue alloc] init]
-            cache:[[BNCLinkCache alloc] init]
-            preferenceHelper:preferenceHelper
-            key:@"key_live_foo"];
-
-    [preferenceHelper setCreditCount:1 forBucket:@"default"];
-    
-    BNCServerResponse *creditHistoryResponse = [[BNCServerResponse alloc] init];
-    creditHistoryResponse.data = @[
-        [@{
-            @"transaction": @{
-                @"id": @"112281771218838351",
-                @"bucket": @"default",
-                @"type": @0,
-                @"amount": @5,
-                @"date": @"2015-04-02T20:58:06.946Z"
-            },
-            @"referrer": @"test_user_10",
-            @"referree": [NSNull null]
-        } mutableCopy]
-    ];
-    
-    __block BNCServerCallback creditHistoryCallback;
-    [[[serverInterfaceMock expect]
-        andDo:^(NSInvocation *invocation) {
-            creditHistoryCallback(creditHistoryResponse, nil);
-        }]
-        postRequest:[OCMArg any]
-        url:[preferenceHelper getAPIURL:@"credithistory"]
-        key:[OCMArg any]
-        callback:[OCMArg checkWithBlock:^BOOL(BNCServerCallback callback) {
-            creditHistoryCallback = callback;
-            return YES;
-        }]];
-    
-    XCTestExpectation *getCreditHistoryExpectation =
-        [self expectationWithDescription:@"Test getCreditHistory"];
-    [branch getCreditHistoryWithCallback:^(NSArray *list, NSError *error) {
-        XCTAssertNil(error);
-        XCTAssertNotNil(list);
-        XCTAssertGreaterThan(list.count, 0);
-        
-        [self safelyFulfillExpectation:getCreditHistoryExpectation];
-    }];
-    
-    [self awaitExpectations];
-}
-
 // Test scenario
 // * Initialize the session
 // * Get a short url.
@@ -282,7 +136,7 @@ NSInteger const  TEST_CREDITS = 30;
     id serverInterfaceMock = OCMClassMock([BNCServerInterface class]);
     [self setupDefaultStubsForServerInterfaceMock:serverInterfaceMock];
 
-    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper preferenceHelper];
+    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper sharedInstance];
     Branch *branch =
 		[[Branch alloc]
 			initWithInterface:serverInterfaceMock
@@ -324,7 +178,7 @@ NSInteger const  TEST_CREDITS = 30;
     // Log out
 
     BNCServerResponse *logoutResp = [[BNCServerResponse alloc] init];
-    logoutResp.data = @{ @"session_id": @"foo", @"identity_id": @"foo", @"link": @"http://foo" };
+    logoutResp.data = @{ @"session_id": @"foo", @"randomized_bundle_token": @"foo", @"link": @"http://foo" };
 
     __block BNCServerCallback logoutCallback;
     [[[serverInterfaceMock expect]
@@ -383,11 +237,8 @@ NSInteger const  TEST_CREDITS = 30;
     BNCServerResponse *openInstallResponse = [[BNCServerResponse alloc] init];
     openInstallResponse.data = @{
         @"session_id": TEST_SESSION_ID,
-        @"identity_id": TEST_IDENTITY_ID,
-        @"device_fingerprint_id": TEST_DEVICE_FINGERPRINT_ID,
-        @"browser_fingerprint_id": TEST_BROWSER_FINGERPRINT_ID,
-        @"link": TEST_IDENTITY_LINK,
-        @"new_identity_id": TEST_NEW_IDENTITY_ID
+        @"randomized_bundle_token": TEST_RANDOMIZED_BUNDLE_TOKEN,
+        @"randomized_device_token": TEST_RANDOMIZED_DEVICE_TOKEN,
     };
     
     // Stub open / install
