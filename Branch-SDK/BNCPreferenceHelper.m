@@ -17,6 +17,7 @@
 static const NSTimeInterval DEFAULT_TIMEOUT = 5.5;
 static const NSTimeInterval DEFAULT_RETRY_INTERVAL = 0;
 static const NSInteger DEFAULT_RETRY_COUNT = 3;
+static const NSTimeInterval DEFAULT_REFERRER_GBRAID_WINDOW = 2592000; // 30 days = 2,592,000 seconds
 
 static NSString * const BRANCH_PREFS_FILE = @"BNCPreferences";
 
@@ -43,6 +44,9 @@ static NSString * const BRANCH_PREFS_KEY_USER_URL = @"bnc_user_url";
 static NSString * const BRANCH_PREFS_KEY_BRANCH_VIEW_USAGE_CNT = @"bnc_branch_view_usage_cnt_";
 static NSString * const BRANCH_PREFS_KEY_ANALYTICAL_DATA = @"bnc_branch_analytical_data";
 static NSString * const BRANCH_PREFS_KEY_ANALYTICS_MANIFEST = @"bnc_branch_analytics_manifest";
+static NSString * const BRANCH_PREFS_KEY_REFERRER_GBRAID = @"bnc_referrer_gbraid";
+static NSString * const BRANCH_PREFS_KEY_REFERRER_GBRAID_WINDOW = @"bnc_referrer_gbraid_window";
+static NSString * const BRANCH_PREFS_KEY_REFERRER_GBRAID_INIT_DATE = @"bnc_referrer_gbraid_init_date";
 
 NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
 
@@ -86,7 +90,9 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
             checkedAppleSearchAdAttribution = _checkedAppleSearchAdAttribution,
             appleSearchAdDetails = _appleSearchAdDetails,
             requestMetadataDictionary = _requestMetadataDictionary,
-            instrumentationDictionary = _instrumentationDictionary;
+            instrumentationDictionary = _instrumentationDictionary,
+            referrerGBRAID = _referrerGBRAID,
+            referrerGBRAIDValidityWindow = _referrerGBRAIDValidityWindow;
 
 + (BNCPreferenceHelper *)sharedInstance {
     static BNCPreferenceHelper *preferenceHelper;
@@ -650,6 +656,53 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
     }
 }
 
+- (NSString *) referrerGBRAID {
+    @synchronized(self) {
+        if (!_referrerGBRAID) {
+            _referrerGBRAID = [self readStringFromDefaults:BRANCH_PREFS_KEY_REFERRER_GBRAID];
+        }
+        return _referrerGBRAID;
+    }
+}
+
+- (void) setReferrerGBRAID:(NSString *)referrerGBRAID {
+    if (![_referrerGBRAID isEqualToString:referrerGBRAID]) {
+        _referrerGBRAID = referrerGBRAID;
+        [self writeObjectToDefaults:BRANCH_PREFS_KEY_REFERRER_GBRAID value:referrerGBRAID];
+        self.referrerGBRAIDInitDate = [NSDate date];
+    }
+}
+
+- (NSTimeInterval) referrerGBRAIDValidityWindow {
+    @synchronized (self) {
+        _referrerGBRAIDValidityWindow = [self readDoubleFromDefaults:BRANCH_PREFS_KEY_REFERRER_GBRAID_WINDOW];
+        if (_referrerGBRAIDValidityWindow == NSNotFound) {
+            _referrerGBRAIDValidityWindow = DEFAULT_REFERRER_GBRAID_WINDOW;
+        }
+        return _referrerGBRAIDValidityWindow;
+    }
+}
+
+- (void) setReferrerGBRAIDValidityWindow:(NSTimeInterval)validityWindow {
+    @synchronized (self) {
+        [self writeObjectToDefaults:BRANCH_PREFS_KEY_REFERRER_GBRAID_WINDOW value:@(validityWindow)];
+    }
+}
+
+- (NSDate*) referrerGBRAIDInitDate {
+    @synchronized (self) {
+        NSDate* initdate = (NSDate*)[self readObjectFromDefaults:BRANCH_PREFS_KEY_REFERRER_GBRAID_INIT_DATE];
+        if ([initdate isKindOfClass:[NSDate class]]) return initdate;
+        return nil;
+    }
+}
+
+- (void)setReferrerGBRAIDInitDate:(NSDate *)initDate {
+    @synchronized (self) {
+        [self writeObjectToDefaults:BRANCH_PREFS_KEY_REFERRER_GBRAID_INIT_DATE value:initDate];
+    }
+}
+
 - (void) clearTrackingInformation {
     @synchronized(self) {
         /*
@@ -742,24 +795,10 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
 - (void)persistPrefsToDisk {
     @synchronized (self) {
         if (!self.persistenceDict) return;
-        NSData *data = nil;
-        @try {
-            if (@available(iOS 11.0, tvOS 11.0, *)) {
-                data = [NSKeyedArchiver archivedDataWithRootObject:self.persistenceDict requiringSecureCoding:YES error:NULL];
-            } else {
-#if __IPHONE_OS_VERSION_MIN_REQUIRED < 12000
-                data = [NSKeyedArchiver archivedDataWithRootObject:self.persistenceDict];
-#endif
-            }
-        }
-        @catch (id exception) {
-            data = nil;
-            BNCLogWarning([NSString stringWithFormat:@"Exception creating preferences data: %@.", exception]);
-        }
-        if (!data) {
-            BNCLogWarning(@"Can't create preferences data.");
-            return;
-        }
+
+        NSData *data = [self serializePrefDict:self.persistenceDict];
+        if (!data) return;
+        
         NSURL *prefsURL = [self.class.URLForPrefsFile copy];
         NSBlockOperation *newPersistOp = [NSBlockOperation blockOperationWithBlock:^ {
             NSError *error = nil;
@@ -772,6 +811,24 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
     }
 }
 
+- (NSData *)serializePrefDict:(NSMutableDictionary *)dict {
+    if (dict == nil) return nil;
+    
+    NSData *data = nil;
+    @try {
+        if (@available(iOS 11.0, tvOS 11.0, *)) {
+            data = [NSKeyedArchiver archivedDataWithRootObject:dict requiringSecureCoding:YES error:NULL];
+        } else {
+            #if __IPHONE_OS_VERSION_MIN_REQUIRED < 12000
+            data = [NSKeyedArchiver archivedDataWithRootObject:dict];
+            #endif
+        }
+    } @catch (id exception) {
+        BNCLogWarning([NSString stringWithFormat:@"Exception serializing preferences dict: %@.", exception]);
+    }
+    return data;
+}
+
 + (void) clearAll {
     NSURL *prefsURL = [self.URLForPrefsFile copy];
     if (prefsURL) [[NSFileManager defaultManager] removeItemAtURL:prefsURL error:nil];
@@ -782,31 +839,50 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
 - (NSMutableDictionary *)persistenceDict {
     @synchronized(self) {
         if (!_persistenceDict) {
-            NSDictionary *persistenceDict = nil;
-            @try {
-                NSError *error = nil;
-                NSData *data = [NSData dataWithContentsOfURL:self.class.URLForPrefsFile options:0 error:&error];
-                if (!error && data) {
-//                    if (@available(iOS 11.0, tvOS 11.0, *)) {
-//                        persistenceDict = [NSKeyedUnarchiver unarchivedObjectOfClass:[NSMutableDictionary class] fromData:data error:NULL];
-//                    } else {
-//#if __IPHONE_OS_VERSION_MIN_REQUIRED < 12000
-                        persistenceDict = [NSKeyedUnarchiver unarchiveObjectWithData:data];
-//#endif
-//                    }
-                }
-            }
-            @catch (NSException*) {
+            _persistenceDict = [self deserializePrefDictFromData:[self loadPrefData]];
+        }
+        return _persistenceDict;
+    }
+}
+
+- (NSData *)loadPrefData {
+    NSData *data = nil;
+    @try {
+        NSError *error = nil;
+        data = [NSData dataWithContentsOfURL:self.class.URLForPrefsFile options:0 error:&error];
+        if (error || !data) {
+            BNCLogWarning(@"Failed to load preferences from storage.");
+        }
+    } @catch (NSException *) {
+        BNCLogWarning(@"Failed to load preferences from storage.");
+    }
+    return data;
+}
+
+- (NSMutableDictionary *)deserializePrefDictFromData:(NSData *)data {
+    NSDictionary *dict = nil;
+    if (data) {
+        if (@available(iOS 11.0, tvOS 11.0, *)) {
+            NSError *error = nil;
+            NSSet *classes = [[NSMutableSet alloc] initWithArray:@[ NSNumber.class, NSString.class, NSDate.class, NSArray.class, NSDictionary.class ]];
+
+            dict = [NSKeyedUnarchiver unarchivedObjectOfClasses:classes fromData:data error:&error];
+            if (error) {
                 BNCLogWarning(@"Failed to load preferences from storage.");
             }
 
-            if ([persistenceDict isKindOfClass:[NSDictionary class]]) {
-                _persistenceDict = [persistenceDict mutableCopy];
-            } else {
-                _persistenceDict = [[NSMutableDictionary alloc] init];
-            }
+        } else {
+        #if __IPHONE_OS_VERSION_MIN_REQUIRED < 12000
+            dict = [NSKeyedUnarchiver unarchiveObjectWithData:data];
+        #endif
         }
-        return _persistenceDict;
+    }
+    
+    // NSKeyedUnarchiver returns an NSDictionary, convert to NSMutableDictionary
+    if (dict && [dict isKindOfClass:[NSDictionary class]]) {
+        return [dict mutableCopy];
+    } else {
+        return [[NSMutableDictionary alloc] init];
     }
 }
 
@@ -853,6 +929,16 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
         NSNumber *number = self.persistenceDict[key];
         if (number != nil && [number respondsToSelector:@selector(integerValue)]) {
             return [number integerValue];
+        }
+        return NSNotFound;
+    }
+}
+
+- (double)readDoubleFromDefaults:(NSString *)key {
+    @synchronized(self) {
+        NSNumber *number = self.persistenceDict[key];
+        if (number != nil && [number respondsToSelector:@selector(doubleValue)]){
+            return [number doubleValue];
         }
         return NSNotFound;
     }

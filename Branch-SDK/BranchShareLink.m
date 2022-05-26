@@ -91,6 +91,7 @@ typedef NS_ENUM(NSInteger, BranchShareActivityItemType) {
 
     _universalObject = universalObject;
     _linkProperties = linkProperties;
+    
     return self;
 }
 
@@ -148,15 +149,16 @@ typedef NS_ENUM(NSInteger, BranchShareActivityItemType) {
         self.shareURL = self.placeholderURL;
     } else {
         
-        // use long link as the placeholder url
+        // use a long app.link url as the placeholder url
         NSString *URLString =
-            [[Branch getInstance]
-                getLongURLWithParams:self.serverParameters
-                andChannel:self.linkProperties.channel
-                andTags:self.linkProperties.tags
-                andFeature:self.linkProperties.feature
-                andStage:self.linkProperties.stage
-                andAlias:self.linkProperties.alias];
+        [[Branch getInstance]
+         getLongAppLinkURLWithParams:self.serverParameters
+         andChannel:self.linkProperties.channel
+         andTags:self.linkProperties.tags
+         andFeature:self.linkProperties.feature
+         andStage:self.linkProperties.stage
+         andAlias:self.linkProperties.alias];
+                
         self.shareURL = [[NSURL alloc] initWithString:URLString];
     }
     
@@ -283,7 +285,7 @@ typedef NS_ENUM(NSInteger, BranchShareActivityItemType) {
 
     // Because Facebook et al immediately scrape URLs, we add an additional parameter to the
     // existing list, telling the backend to ignore the first click.
-
+    
     NSSet*scrapers = [NSSet setWithArray:@[
         @"Facebook",
         @"Twitter",
@@ -339,5 +341,19 @@ typedef NS_ENUM(NSInteger, BranchShareActivityItemType) {
     return nil;
 }
 
+- (void) addLPLinkMetadata:(NSString *)title icon:(UIImage *)icon API_AVAILABLE(ios(13.0)) {
+
+    LPLinkMetadata *metadata = [LPLinkMetadata new];
+
+    metadata.title = title;
+    
+    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper sharedInstance];
+    NSString *userURL = preferenceHelper.userUrl;
+    metadata.URL = [NSURL URLWithString: userURL];
+    
+    metadata.iconProvider = [[NSItemProvider new] initWithObject:icon];
+
+    self.lpMetaData = metadata;
+}
 
 @end
