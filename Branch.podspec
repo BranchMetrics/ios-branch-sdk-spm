@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "Branch"
-  s.version          = "1.43.2"
+  s.version          = "1.44.0"
   s.summary          = "Create an HTTP URL for any piece of content in your app"
   s.description      = <<-DESC
 - Want the highest possible conversions on your sharing feature?
@@ -15,8 +15,8 @@ Use the Branch SDK (branch.io) to create and power the links that point back to 
   s.license          = 'MIT'
   s.author           = { "Branch" => "sdk-team@branch.io" }
   s.source           = { git: "https://github.com/BranchMetrics/ios-branch-deep-linking-attribution.git", tag: s.version.to_s }
-  s.ios.deployment_target = '9.0'
-  s.tvos.deployment_target = '9.0'
+  s.ios.deployment_target = '11.0'
+  s.tvos.deployment_target = '11.0'
 
   s.ios.source_files = "Branch-SDK/*.{h,m}"
 
@@ -29,7 +29,8 @@ Use the Branch SDK (branch.io) to create and power the links that point back to 
 	"Branch-SDK/BNCSpotlightService.{h,m}",
 	"Branch-SDK/BranchActivityItemProvider.{h,m}",
 	"Branch-SDK/BranchCSSearchableItemAttributeSet.{h,m}",
-	"Branch-SDK/BranchShareLink.{h,m}"
+	"Branch-SDK/BranchShareLink.{h,m}",
+	"Branch-SDK/BranchPasteControl.{h,m}"
 
   s.frameworks = 'CoreServices', 'SystemConfiguration'
   s.weak_framework = 'LinkPresentation'
