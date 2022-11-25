@@ -58,4 +58,4 @@ runs:
         git commit -a -m'[release] ${{ inputs.tag }}'
         git push
 
-        echo "::set-output name=sha::$(git rev-parse HEAD)"
+        echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT

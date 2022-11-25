@@ -15,9 +15,9 @@ jobs:
       MAIN_REPO_REPO: ios-branch-deep-linking-attribution
     steps:
       - name: Check out SPM repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Check out main iOS repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: ${{ env.MAIN_REPO_OWNER }}/${{ env.MAIN_REPO_REPO }}
           ref: ${{ github.event.inputs.tag }}
