@@ -630,6 +630,7 @@
 		E72489D128E40D0200DCD8FD /* PasteControlViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PasteControlViewController.m; sourceTree = "<group>"; };
 		E729974B28E2BBFA007D91B2 /* BranchPasteControl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BranchPasteControl.h; sourceTree = "<group>"; };
 		E729974C28E2BBFA007D91B2 /* BranchPasteControl.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BranchPasteControl.m; sourceTree = "<group>"; };
+		E7D6CF89297B1BF900FB9E34 /* BNCTestSPMRepo.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = BNCTestSPMRepo.m; path = ../BNCTestSPMRepo.m; sourceTree = "<group>"; };
 		F185BAA81F3D30D70056300C /* BNCSpotlightService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BNCSpotlightService.h; sourceTree = "<group>"; };
 		F185BAA91F3D30D70056300C /* BNCSpotlightService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BNCSpotlightService.m; sourceTree = "<group>"; };
 		F1D3591E1ED4DCC500A93FD5 /* BNCDeepLinkViewControllerInstance.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BNCDeepLinkViewControllerInstance.h; sourceTree = "<group>"; };
@@ -829,6 +830,7 @@
 		670016571940F51400A9E103 = {
 			isa = PBXGroup;
 			children = (
+				E7D6CF89297B1BF900FB9E34 /* BNCTestSPMRepo.m */,
 				6589EBA52674270100F2E28B /* Branch-TestBed-CI.xctestplan */,
 				033FC71025AC1E5800D8319E /* Branch-TestBed.xctestplan */,
 				4D93D8592098CC4400CFABA6 /* README.md */,
