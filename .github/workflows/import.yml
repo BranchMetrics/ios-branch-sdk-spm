@@ -1,7 +1,7 @@
 name: Import release
 
 on:
-  workflow_dispatch:
+  repository_dispatch:
     inputs:
       tag:
         required: true
@@ -20,19 +20,19 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: ${{ env.MAIN_REPO_OWNER }}/${{ env.MAIN_REPO_REPO }}
-          ref: ${{ github.event.inputs.tag }}
+          ref: ${{ github.event.client_payload.tag }}
           path: .ios-repo
-      - name: Import release ${{ github.event.inputs.tag }}
+      - name: Import release ${{ github.event.client_payload.tag }}
         id: import-release
         uses: ./.github/actions/import-release
         with:
-          tag: ${{ github.event.inputs.tag }}
+          tag: ${{ github.event.client_payload.tag }}
       - name: Create release
         uses: actions/github-script@v4
         with:
           result-encoding: string
           script: |
-            const tag = '${{ github.event.inputs.tag }}';
+            const tag = '${{ github.event.client_payload.tag }}';
             const sha = '${{ steps.import-release.outputs.sha }}';
             const mainRepoOwner = '${{ env.MAIN_REPO_OWNER }}';
             const mainRepoRepo = '${{ env.MAIN_REPO_REPO }}';
