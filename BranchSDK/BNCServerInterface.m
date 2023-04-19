@@ -401,6 +401,7 @@
         preparedParams[@"randomized_bundle_token"] = nil;
         preparedParams[@"identity"] = nil;
         preparedParams[@"update"] = nil;
+        preparedParams[@"anon_id"] = nil;
     }
     NSData *postData = [BNCEncodingUtils encodeDictionaryToJsonData:preparedParams];
     NSString *postLength = [NSString stringWithFormat:@"%lu", (unsigned long)[postData length]];
@@ -459,7 +460,7 @@
     }
     
     BNCReferringURLUtility *utility = [BNCReferringURLUtility new];
-    NSDictionary *urlQueryParams = [utility getURLQueryParamsForRequest:self.requestEndpoint];
+    NSDictionary *urlQueryParams = [utility referringURLQueryParamsForEndpoint:self.requestEndpoint];
     [fullParamDict bnc_safeAddEntriesFromDictionary:urlQueryParams];
     
     if ([self.requestEndpoint containsString:@"/v1/open"]) {
@@ -524,6 +525,7 @@
         [self safeSetValue:deviceInfo.vendorId forKey:BRANCH_REQUEST_KEY_IOS_VENDOR_ID onDict:dict];
         // idfa is only in the hardware id field
         // [self safeSetValue:deviceInfo.advertiserId forKey:@"idfa" onDict:dict];
+        [self safeSetValue:deviceInfo.anonId forKey:@"anon_id" onDict:dict];
         
         [self safeSetValue:deviceInfo.osName forKey:BRANCH_REQUEST_KEY_OS onDict:dict];
         [self safeSetValue:deviceInfo.osVersion forKey:BRANCH_REQUEST_KEY_OS_VERSION onDict:dict];
