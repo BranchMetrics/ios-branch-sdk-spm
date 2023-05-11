@@ -1,11 +1,12 @@
 name: Import release
 
 on:
-  repository_dispatch:
+  workflow_dispatch:
     inputs:
       tag:
         required: true
         description: A release tag from the iOS repo to import
+  repository_dispatch:
 
 jobs:
   import:
@@ -14,25 +15,33 @@ jobs:
       MAIN_REPO_OWNER: BranchMetrics
       MAIN_REPO_REPO: ios-branch-deep-linking-attribution
     steps:
+      - name: Set tag name varibale for repository_dispatch event type
+        if: github.event_name == 'repository_dispatch'
+        run: |
+            echo IOS_SDK_REPO_TAG=${{ github.event.client_payload.tag }} >> $GITHUB_ENV
+      - name: Set tag name varibale for workflow_dispatch event type
+        if:  github.event_name == 'workflow_dispatch'
+        run: |
+            echo IOS_SDK_REPO_TAG=${{ github.event.inputs.tag }} >> $GITHUB_ENV
       - name: Check out SPM repo
         uses: actions/checkout@v3
       - name: Check out main iOS repo
         uses: actions/checkout@v3
         with:
           repository: ${{ env.MAIN_REPO_OWNER }}/${{ env.MAIN_REPO_REPO }}
-          ref: ${{ github.event.client_payload.tag }}
+          ref: ${{ env.IOS_SDK_REPO_TAG }}
           path: .ios-repo
-      - name: Import release ${{ github.event.client_payload.tag }}
+      - name: Import release ${{ env.IOS_SDK_REPO_TAG }}
         id: import-release
         uses: ./.github/actions/import-release
         with:
-          tag: ${{ github.event.client_payload.tag }}
+          tag: ${{ env.IOS_SDK_REPO_TAG }}
       - name: Create release
         uses: actions/github-script@v4
         with:
           result-encoding: string
           script: |
-            const tag = '${{ github.event.client_payload.tag }}';
+            const tag = '${{ env.IOS_SDK_REPO_TAG }}';
             const sha = '${{ steps.import-release.outputs.sha }}';
             const mainRepoOwner = '${{ env.MAIN_REPO_OWNER }}';
             const mainRepoRepo = '${{ env.MAIN_REPO_REPO }}';
