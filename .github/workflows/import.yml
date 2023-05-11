@@ -22,7 +22,7 @@ jobs:
           repository: ${{ env.MAIN_REPO_OWNER }}/${{ env.MAIN_REPO_REPO }}
           ref: ${{ github.event.client_payload.tag }}
           path: .ios-repo
-      - name: Import release ${{ github.event.client_payload.tag }}
+      - name: Import release ${{ env.IOS_SDK_REPO_TAG }}
         id: import-release
         uses: ./.github/actions/import-release
         with:
