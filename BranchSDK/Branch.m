@@ -18,24 +18,19 @@
 #import "BNCServerRequestQueue.h"
 #import "BNCServerResponse.h"
 #import "BNCSystemObserver.h"
-#import "BranchCloseRequest.h"
 #import "BranchConstants.h"
 #import "BranchInstallRequest.h"
 #import "BranchJsonConfig.h"
-#import "BranchLogoutRequest.h"
 #import "BranchOpenRequest.h"
-#import "BranchSetIdentityRequest.h"
 #import "BranchShortUrlRequest.h"
 #import "BranchShortUrlSyncRequest.h"
 #import "BranchSpotlightUrlRequest.h"
 #import "BranchUniversalObject.h"
-#import "BranchUserCompletedActionRequest.h"
 #import "NSMutableDictionary+Branch.h"
 #import "NSString+Branch.h"
 #import "Branch+Validator.h"
 #import "BNCApplication.h"
 #import "BNCURLFilter.h"
-#import "BNCFacebookAppLinks.h"
 #import "BNCDeviceInfo.h"
 #import "BNCCallbackMap.h"
 #import "BNCSKAdNetwork.h"
@@ -47,6 +42,7 @@
 #import "BNCLog.h"
 #import "UIViewController+Branch.h"
 #import "BNCReferringURLUtility.h"
+#import "BNCServerAPI.h"
 
 #if !TARGET_OS_TV
 #import "BNCUserAgentCollector.h"
@@ -145,6 +141,7 @@ typedef NS_ENUM(NSInteger, BNCInitStatus) {
 @property (strong, nonatomic) NSDictionary *deepLinkDebugParams;
 @property (strong, nonatomic) NSMutableArray *allowedSchemeList;
 @property (strong, nonatomic) BNCURLFilter *urlFilter;
+@property (strong, nonatomic) BNCServerAPI *serverAPI;
 
 #if !TARGET_OS_TV
 @property (strong, nonatomic) BNCContentDiscoveryManager *contentDiscoveryManager;
@@ -202,6 +199,7 @@ typedef NS_ENUM(NSInteger, BNCInitStatus) {
     _networkCount = 0;
     _deepLinkControllers = [[NSMutableDictionary alloc] init];
     _allowedSchemeList = [[NSMutableArray alloc] init];
+    _serverAPI = [BNCServerAPI sharedInstance];
 
     #if !TARGET_OS_TV
     _contentDiscoveryManager = [[BNCContentDiscoveryManager alloc] init];
@@ -239,16 +237,6 @@ typedef NS_ENUM(NSInteger, BNCInitStatus) {
     
     if (config.checkPasteboardOnInstall) {
         [self checkPasteboardOnInstall];
-    }
-
-    if (config.enableFacebookLinkCheck) {
-        Class FBSDKAppLinkUtility = NSClassFromString(@"FBSDKAppLinkUtility");
-        if (FBSDKAppLinkUtility) {
-            [self registerFacebookDeepLinkingClass:FBSDKAppLinkUtility];
-        }
-        else {
-            BNCLogWarning(@"FBSDKAppLinkUtility not found but enableFacebookLinkCheck set to true. Please be sure you have integrated the Facebook SDK.");
-        }
     }
 
     return self;
@@ -429,6 +417,10 @@ static NSString *bnc_branchKey = nil;
 
 - (void)enableLogging {
     BNCLogSetDisplayLevel(BNCLogLevelDebug);
+}
+
+- (void)useEUEndpoints {
+    [BNCServerAPI sharedInstance].useEUServers = YES;
 }
 
 - (void)setDebug {
@@ -654,18 +646,13 @@ static NSString *bnc_branchKey = nil;
     if (![options.allKeys containsObject:UIApplicationLaunchOptionsURLKey] && ![options.allKeys containsObject:UIApplicationLaunchOptionsUserActivityDictionaryKey]) {
 
         // queue up async attribution checks
-        [self checkFacebookAppLinks];
         [self checkAttributionStatusAndInitialize];
     }
 }
 
 - (void)checkAttributionStatusAndInitialize {
     dispatch_async(self.isolationQueue, ^(){
-        if ([BNCPreferenceHelper sharedInstance].faceBookAppLink) {
-            [self handleDeepLink:[BNCPreferenceHelper sharedInstance].faceBookAppLink sceneIdentifier:nil];
-        } else {
-            [self initUserSessionAndCallCallback:YES sceneIdentifier:nil];
-        }
+        [self initUserSessionAndCallCallback:YES sceneIdentifier:nil];
     });
 }
 
@@ -789,17 +776,10 @@ static NSString *bnc_branchKey = nil;
 
 - (BOOL)application:(UIApplication *)application
             openURL:(NSURL *)url
-            options:(NSDictionary</*UIApplicationOpenURLOptionsKey*/NSString*,id> *)options {
+            options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options {
 
-    NSString *source = nil;
-    NSString *annotation = nil;
-    if (@available(iOS 9.0, *)) {
-        if (UIApplicationOpenURLOptionsSourceApplicationKey &&
-            UIApplicationOpenURLOptionsAnnotationKey) {
-            source = options[UIApplicationOpenURLOptionsSourceApplicationKey];
-            annotation = options[UIApplicationOpenURLOptionsAnnotationKey];
-        }
-    }
+    NSString *source = options[UIApplicationOpenURLOptionsSourceApplicationKey];
+    NSString *annotation = options[UIApplicationOpenURLOptionsAnnotationKey];
     return [self application:application openURL:url sourceApplication:source annotation:annotation];
 }
 
@@ -821,10 +801,8 @@ static NSString *bnc_branchKey = nil;
 - (BOOL)continueUserActivity:(NSUserActivity *)userActivity sceneIdentifier:(NSString *)sceneIdentifier {
     BNCLogDebugSDK(@"continueUserActivity:");
 
-    if (@available(iOS 11.0, tvOS 11.0, *)) {
-        if (userActivity.referrerURL) {
-            self.preferenceHelper.initialReferrer = userActivity.referrerURL.absoluteString;
-        }
+    if (userActivity.referrerURL) {
+        self.preferenceHelper.initialReferrer = userActivity.referrerURL.absoluteString;
     }
     
     // Check to see if a browser activity needs to be handled
@@ -1008,25 +986,6 @@ static NSString *bnc_branchKey = nil;
     dispatch_async(self.isolationQueue, initBlock);
 }
 
-#pragma mark - Facebook App Link Check
-
-- (void)registerFacebookDeepLinkingClass:(id)FBSDKAppLinkUtility {
-    [[BNCFacebookAppLinks sharedInstance] registerFacebookDeepLinkingClass:FBSDKAppLinkUtility];
-}
-
-- (void)checkFacebookAppLinks {
-    dispatch_async(self.isolationQueue, ^(){
-        dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-        [[BNCFacebookAppLinks sharedInstance] fetchFacebookAppLinkWithCompletion:^(NSURL * _Nullable appLink, NSError * _Nullable error) {
-            if (appLink && !error) {
-                [BNCPreferenceHelper sharedInstance].faceBookAppLink = appLink;
-            }
-            dispatch_semaphore_signal(semaphore);
-        }];
-        dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-    });
-}
-
 #pragma mark - Deep Link Controller methods
 
 - (void)registerDeepLinkController:(UIViewController <BranchDeepLinkingController> *)controller forKey:(NSString *)key {
@@ -1051,39 +1010,11 @@ static NSString *bnc_branchKey = nil;
 }
 
 - (void)setIdentity:(NSString *)userId withCallback:(callbackWithParams)callback {
-    if (!userId || [self.preferenceHelper.userIdentity isEqualToString:userId]) {
-        if (callback) {
-            callback([self getFirstReferringParams], nil);
-        }
-        return;
+    if (userId) {
+        self.preferenceHelper.userIdentity = userId;
     }
-    
-    if (self.initializationStatus == BNCInitStatusUninitialized ) {
-        [self cacheIdentity:userId withCallback:callback];
-    } else {
-        [self sendIdentity:userId withCallback:callback];
-    }
-}
-
-- (void) sendIdentity:(NSString *)userId withCallback:(callbackWithParams)callback {
-    dispatch_async(self.isolationQueue, ^(){
-        BranchSetIdentityRequest *req = [[BranchSetIdentityRequest alloc] initWithUserId:userId callback:callback];
-        [self.requestQueue enqueue:req];
-        [self processNextQueueItem];
-    });
-}
-
-- (void) cacheIdentity: (NSString *)userId withCallback:(callbackWithParams)callback {
-    self.installUserId = userId;
-    self.setIdentityCallback = callback;
-}
-
-- (void) applySavedIdentity {
-    if (self.installUserId != nil) {
-        [self sendIdentity:self.installUserId withCallback:self.setIdentityCallback];
-        
-        self.installUserId = nil;
-        self.setIdentityCallback = nil;
+    if (callback) {
+        callback([self getFirstReferringParams], nil);
     }
 }
 
@@ -1102,54 +1033,15 @@ static NSString *bnc_branchKey = nil;
         return;
     }
 
-    BranchLogoutRequest *req =
-        [[BranchLogoutRequest alloc] initWithCallback:^(BOOL success, NSError *error) {
-            if (success) {
-                // Clear cached links
-                self.linkCache = [[BNCLinkCache alloc] init];
-
-                if (callback) {
-                    callback(YES, nil);
-                }
-                BNCLogDebug(@"Logout success.");
-            } else /*failure*/ {
-                if (callback) {
-                    callback(NO, error);
-                }
-                BNCLogDebug(@"Logout failure.");
-            }
-        }];
-
-    [self.requestQueue enqueue:req];
-    [self processNextQueueItem];
-}
-
-
-
-#pragma mark - User Action methods
-
-- (void)userCompletedAction:(NSString *)action {
-    [self userCompletedAction:action withState:nil];
-}
-
-- (void)userCompletedAction:(NSString *)action withState:(NSDictionary *)state {
+    // Clear cached links
+    self.linkCache = [[BNCLinkCache alloc] init];
     
-    NSLog(@"'userCompletedAction' method has been deprecated. Please use BranchEvent for your event tracking use cases. You can refer to https://help.branch.io/developers-hub/docs/tracking-commerce-content-lifecycle-and-custom-events for additional information.");
+    // Removed stored values
+    self.preferenceHelper.userIdentity = nil;
     
-    if (!action) {
-        return;
+    if (callback) {
+        callback(YES, nil);
     }
-
-    [self initSafetyCheck];
-    dispatch_async(self.isolationQueue, ^(){
-        BranchUserCompletedActionRequest *req = [[BranchUserCompletedActionRequest alloc] initWithAction:action state:state];
-        [self.requestQueue enqueue:req];
-        [self processNextQueueItem];
-    });
-}
-
-- (void)userCompletedAction:(NSString *)action withState:(NSDictionary *)state withDelegate:(id)branchViewCallback {
-    [self userCompletedAction:action withState:state];
 }
 
 - (void)sendServerRequest:(BNCServerRequest*)request {
@@ -1163,62 +1055,6 @@ static NSString *bnc_branchKey = nil;
 // deprecated, use sendServerRequest
 - (void)sendServerRequestWithoutSession:(BNCServerRequest*)request {
     [self sendServerRequest:request];
-}
-
-- (void)sendCommerceEvent:(BNCCommerceEvent *)commerceEvent metadata:(NSDictionary*)metadata withCompletion:(void (^)(NSDictionary *, NSError *))completion {
-    NSLog(@"'sendCommerceEvent' method has been deprecated. Please use BranchEvent for your event tracking use cases. You can refer to https://help.branch.io/developers-hub/docs/tracking-commerce-content-lifecycle-and-custom-events for additional information.");
-    [self initSafetyCheck];
-    dispatch_async(self.isolationQueue, ^(){
-        BranchCommerceEventRequest *request = [[BranchCommerceEventRequest alloc] initWithCommerceEvent:commerceEvent metadata:metadata completion:completion];
-        [self.requestQueue enqueue:request];
-        [self processNextQueueItem];
-    });
-}
-
-#pragma mark - Credit methods
-
-- (void)loadRewardsWithCallback:(callbackWithStatus)callback {
-    return;
-}
-
-- (NSInteger)getCredits {
-    return 0;
-}
-
-- (void)redeemRewards:(NSInteger)count {
-    return;
-}
-
-- (void)redeemRewards:(NSInteger)count callback:(callbackWithStatus)callback {
-    return;
-}
-
-- (NSInteger)getCreditsForBucket:(NSString *)bucket {
-    return 0;
-}
-
-- (void)redeemRewards:(NSInteger)count forBucket:(NSString *)bucket {
-    return;
-}
-
-- (void)redeemRewards:(NSInteger)count forBucket:(NSString *)bucket callback:(callbackWithStatus)callback {
-    return;
-}
-
-- (void)getCreditHistoryWithCallback:(callbackWithList)callback {
-    return;
-}
-
-- (void)getCreditHistoryForBucket:(NSString *)bucket andCallback:(callbackWithList)callback {
-    return;
-}
-
-- (void)getCreditHistoryAfter:(NSString *)creditTransactionId number:(NSInteger)length order:(BranchCreditHistoryOrder)order andCallback:(callbackWithList)callback {
-    return;
-}
-
-- (void)getCreditHistoryForBucket:(NSString *)bucket after:(NSString *)creditTransactionId number:(NSInteger)length order:(BranchCreditHistoryOrder)order andCallback:(callbackWithList)callback {
-    return;
 }
 
 - (BranchUniversalObject *)getFirstReferringBranchUniversalObject {
@@ -1285,13 +1121,6 @@ static NSString *bnc_branchKey = nil;
 }
 
 #pragma mark - Query methods
-
-- (void)crossPlatformIdDataWithCompletion:(void(^) (BranchCrossPlatformID * _Nullable cpid))completion {
-    [self initSafetyCheck];
-    dispatch_async(self.isolationQueue, ^(){
-        [BranchCrossPlatformID requestCrossPlatformIdData:self.serverInterface key:self.class.branchKey completion:completion];
-    });
-}
 
 - (void)lastAttributedTouchDataWithAttributionWindow:(NSInteger)window completion:(void(^) (BranchLastAttributedTouchData * _Nullable latd, NSError * _Nullable error))completion {
     [self initSafetyCheck];
@@ -1505,7 +1334,6 @@ static NSString *bnc_branchKey = nil;
     [self.contentDiscoveryManager indexContentWithTitle:title description:description canonicalId:canonicalId publiclyIndexable:publiclyIndexable type:type thumbnailUrl:thumbnailUrl keywords:keywords userInfo:linkParams expirationDate:expirationDate callback:callback];
 }
 
-// Use this with iOS 9+ only
 - (void)createDiscoverableContentWithTitle:(NSString *)title description:(NSString *)description thumbnailUrl:(NSURL *)thumbnailUrl linkParams:(NSDictionary *)linkParams type:(NSString *)type publiclyIndexable:(BOOL)publiclyIndexable keywords:(NSSet *)keywords expirationDate:(NSDate *)expirationDate spotlightCallback:(callbackWithUrlAndSpotlightIdentifier)spotlightCallback {
     [self.contentDiscoveryManager indexContentWithTitle:title description:description canonicalId:nil publiclyIndexable:publiclyIndexable type:type thumbnailUrl:thumbnailUrl keywords:keywords userInfo:linkParams expirationDate:expirationDate callback:nil spotlightCallback:spotlightCallback];
 }
@@ -1729,61 +1557,50 @@ static NSString *bnc_branchKey = nil;
                      andParams:(NSDictionary *)params
                 ignoreUAString:(NSString *)ignoreUAString
              forceLinkCreation:(BOOL)forceLinkCreation {
-
+    
     NSString *shortURL = nil;
-
+    
     BNCLinkData *linkData =
-        [self prepareLinkDataFor:tags
-            andAlias:alias
-             andType:type
-    andMatchDuration:duration
-          andChannel:channel
-          andFeature:feature
-            andStage:stage
-         andCampaign:campaign
-           andParams:params
-      ignoreUAString:ignoreUAString];
-
+    [self prepareLinkDataFor:tags
+                    andAlias:alias
+                     andType:type
+            andMatchDuration:duration
+                  andChannel:channel
+                  andFeature:feature
+                    andStage:stage
+                 andCampaign:campaign
+                   andParams:params
+              ignoreUAString:ignoreUAString];
+    
     // If an ignore UA string is present, we always get a new url.
     // Otherwise, if we've already seen this request, use the cached version.
     if (!ignoreUAString && [self.linkCache objectForKey:linkData]) {
         shortURL = [self.linkCache objectForKey:linkData];
     } else {
         BranchShortUrlSyncRequest *req =
-            [[BranchShortUrlSyncRequest alloc]
-                initWithTags:tags
-                alias:alias
-                type:type
-                matchDuration:duration
-                channel:channel
-                feature:feature
-                stage:stage
-                campaign:campaign
-                params:params
-                linkData:linkData
-                linkCache:self.linkCache];
-
-        if (self.initializationStatus == BNCInitStatusInitialized) {
-            BNCLogDebug(@"Creating a custom URL synchronously.");
-            BNCServerResponse *serverResponse = [req makeRequest:self.serverInterface key:self.class.branchKey];
-            shortURL = [req processResponse:serverResponse];
-
-            // cache the link
-            if (shortURL) {
-                [self.linkCache setObject:shortURL forKey:linkData];
-            }
-        } else {
-            if (forceLinkCreation) {
-                if (self.class.branchKey) {
-                    return [BranchShortUrlSyncRequest createLinkFromBranchKey:self.class.branchKey
-                        tags:tags alias:alias type:type matchDuration:duration
-                            channel:channel feature:feature stage:stage params:params];
-                }
-            }
-            BNCLogError(@"Making a Branch request before init has succeeded!");
+        [[BranchShortUrlSyncRequest alloc]
+         initWithTags:tags
+         alias:alias
+         type:type
+         matchDuration:duration
+         channel:channel
+         feature:feature
+         stage:stage
+         campaign:campaign
+         params:params
+         linkData:linkData
+         linkCache:self.linkCache];
+        
+        BNCLogDebug(@"Creating a custom URL synchronously.");
+        BNCServerResponse *serverResponse = [req makeRequest:self.serverInterface key:self.class.branchKey];
+        shortURL = [req processResponse:serverResponse];
+        
+        // cache the link
+        if (shortURL) {
+            [self.linkCache setObject:shortURL forKey:linkData];
         }
     }
-
+    
     return shortURL;
 }
 
@@ -1921,28 +1738,9 @@ static NSString *bnc_branchKey = nil;
 
 - (void)applicationWillResignActive {
     if (!Branch.trackingDisabled) {
-        [self callClose];
         [self.requestQueue persistImmediately];
         [BranchOpenRequest setWaitNeededForOpenResponseLock];
         BNCLogDebugSDK(@"Application resigned active.");
-    }
-}
-
-- (void)callClose {
-    if (self.initializationStatus != BNCInitStatusUninitialized) {
-        self.initializationStatus = BNCInitStatusUninitialized;
-
-#if !TARGET_OS_TV
-        BranchContentDiscoverer *contentDiscoverer = [BranchContentDiscoverer getInstance];
-        if (contentDiscoverer) [contentDiscoverer stopDiscoveryTask];
-#endif
-        
-        BOOL sendCloseRequests = [[BNCPreferenceHelper sharedInstance] sendCloseRequests];
-        if (sendCloseRequests && self.preferenceHelper.sessionID && ![self.requestQueue containsClose]) {
-            BranchCloseRequest *req = [[BranchCloseRequest alloc] init];
-            [self.requestQueue enqueue:req];
-            [self processNextQueueItem];
-        }
     }
 }
 
@@ -2048,10 +1846,7 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
 
     // These request types
     NSSet<Class> *replayableRequests = [[NSSet alloc] initWithArray:@[
-        BranchEventRequest.class,
-        BranchUserCompletedActionRequest.class,
-        BranchSetIdentityRequest.class,
-        BranchCommerceEventRequest.class,
+        BranchEventRequest.class
     ]];
 
     if ([replayableRequests containsObject:request.class]) {
@@ -2280,16 +2075,11 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
         NSString* referringLink = [self.class returnNonUniversalLink:latestReferringParams[@"~referring_link"] ];
         NSURLComponents *comp = [NSURLComponents componentsWithURL:[NSURL URLWithString:referringLink]
                                            resolvingAgainstBaseURL:NO];
-
-
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        
         Class applicationClass = NSClassFromString(@"UIApplication");
         id<NSObject> sharedApplication = [applicationClass performSelector:@selector(sharedApplication)];
-        SEL openURL = @selector(openURL:);
-        if ([sharedApplication respondsToSelector:openURL])
-            [sharedApplication performSelector:openURL withObject:comp.URL];
-        #pragma clang diagnostic pop
+        if ([sharedApplication respondsToSelector:@selector(openURL:)])
+            [sharedApplication performSelector:@selector(openURL:) withObject:comp.URL];
     }
 
     if (callCallback) {
@@ -2305,7 +2095,6 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
     }
     [self sendOpenNotificationWithLinkParameters:latestReferringParams error:nil];
 
-    [self applySavedIdentity];
     
     if (!self.urlFilter.hasUpdatedPatternList) {
         [self.urlFilter updatePatternListWithCompletion:nil];
@@ -2318,6 +2107,7 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
     }
 }
 
+// TODO: can we deprecate and remove this, it doesn't work well.
 // UI code, must run on main
 - (void)automaticallyDeeplinkWithReferringParams:(NSDictionary *)latestReferringParams {
     // Find any matched keys, then launch any controllers that match
@@ -2521,14 +2311,6 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
 }
 
 #pragma mark - BranchDeepLinkingControllerCompletionDelegate methods
-
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-implementations"
-- (void)deepLinkingControllerCompleted {
-    [self.deepLinkPresentingController dismissViewControllerAnimated:YES completion:NULL];
-}
-#pragma clang diagnostic pop
 
 - (void)deepLinkingControllerCompletedFrom:(UIViewController *)viewController {
     [self.deepLinkControllers enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {

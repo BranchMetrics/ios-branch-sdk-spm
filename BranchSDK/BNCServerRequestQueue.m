@@ -9,16 +9,11 @@
 
 #import "BNCServerRequestQueue.h"
 #import "BNCPreferenceHelper.h"
-#import "BranchCloseRequest.h"
 
 // Analytics requests
 #import "BranchInstallRequest.h"
 #import "BranchOpenRequest.h"
 #import "BranchEvent.h"
-#import "BNCCommerceEvent.h"
-#import "BranchUserCompletedActionRequest.h"
-#import "BranchSetIdentityRequest.h"
-#import "BranchLogoutRequest.h"
 
 #import "BNCLog.h"
 
@@ -219,18 +214,6 @@ static inline uint64_t BNCNanoSecondsFromTimeInterval(NSTimeInterval interval) {
     }
 }
 
-- (BOOL)containsClose {
-    @synchronized (self) {
-        for (NSUInteger i = 0; i < self.queue.count; i++) {
-            BNCServerRequest *req = [self.queue objectAtIndex:i];
-            if ([req isKindOfClass:[BranchCloseRequest class]]) {
-                return YES;
-            }
-        }
-        return NO;
-    }
-}
-
 #pragma mark - Private Methods
 
 - (void)persistEventually {
@@ -310,13 +293,9 @@ static inline uint64_t BNCNanoSecondsFromTimeInterval(NSTimeInterval interval) {
     NSMutableArray<NSData *> *archivedRequests = [NSMutableArray<NSData *> new];
     for (BNCServerRequest *request in queue) {
         
-        // only close requests were ignored
-        if (![BranchCloseRequest.class isEqual:request.class]) {
-            
-            // archive every request
-            NSData *encodedRequest = [self archiveObject:request];
-            [archivedRequests addObject:encodedRequest];
-        }
+        // archive every request
+        NSData *encodedRequest = [self archiveObject:request];
+        [archivedRequests addObject:encodedRequest];
     }
     return [self archiveObject:archivedRequests];
 }
@@ -324,17 +303,10 @@ static inline uint64_t BNCNanoSecondsFromTimeInterval(NSTimeInterval interval) {
 - (NSData *)archiveObject:(NSObject *)object {
     NSData *data = nil;
     NSError *error = nil;
-    if (@available(iOS 11.0, tvOS 11.0, *)) {
-        data = [NSKeyedArchiver archivedDataWithRootObject:object requiringSecureCoding:YES error:&error];
-        
-        if (!data && error) {
-            BNCLogWarning([NSString stringWithFormat:@"Failed to archive: %@", error]);
-        }
-        
-    } else {
-        #if __IPHONE_OS_VERSION_MIN_REQUIRED < 12000
-        data = [NSKeyedArchiver archivedDataWithRootObject:object];
-        #endif
+    data = [NSKeyedArchiver archivedDataWithRootObject:object requiringSecureCoding:YES error:&error];
+    
+    if (!data && error) {
+        BNCLogWarning([NSString stringWithFormat:@"Failed to archive: %@", error]);
     }
     return data;
 }
@@ -380,15 +352,13 @@ static inline uint64_t BNCNanoSecondsFromTimeInterval(NSTimeInterval interval) {
 }
 
 - (id)unarchiveObjectFromData:(NSData *)data {
-    id object = nil;
-    if (@available(iOS 11.0, tvOS 11.0, *)) {
-        object = [NSKeyedUnarchiver unarchivedObjectOfClasses:[BNCServerRequestQueue encodableClasses] fromData:data error:nil];
-
-    } else {
-        #if __IPHONE_OS_VERSION_MIN_REQUIRED < 12000
-        object = [NSKeyedUnarchiver unarchiveObjectWithData:data];
-        #endif
+    NSError *error;
+    id object = [NSKeyedUnarchiver unarchivedObjectOfClasses:[BNCServerRequestQueue encodableClasses] fromData:data error:&error];
+    
+    if (error) {
+        BNCLogWarning([NSString stringWithFormat:@"Failed to unarchive: %@", error]);
     }
+    
     return object;
 }
 
@@ -401,10 +371,6 @@ static inline uint64_t BNCNanoSecondsFromTimeInterval(NSTimeInterval interval) {
             [BranchOpenRequest class],
             [BranchInstallRequest class],
             [BranchEventRequest class],
-            [BranchCommerceEventRequest class],
-            [BranchUserCompletedActionRequest class],
-            [BranchSetIdentityRequest class],
-            [BranchLogoutRequest class],
         ];
         requestClasses = [NSSet setWithArray:tmp];
     });

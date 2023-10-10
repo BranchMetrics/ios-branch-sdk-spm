@@ -13,13 +13,11 @@
 #import "BNCConfig.h"
 #import "BNCNetworkInterface.h"
 #import "BNCReachability.h"
-#import "BNCLocale.h"
 #import "NSMutableDictionary+Branch.h"
 #import "BNCDeviceSystem.h"
 
 #if !TARGET_OS_TV
-// tvOS does not support webkit or telephony
-#import "BNCTelephony.h"
+// tvOS does not support webkit
 #import "BNCUserAgentCollector.h"
 #endif
 
@@ -71,8 +69,6 @@
 }
 
 - (void)loadDeviceInfo {
-
-    BNCLocale *locale = [BNCLocale new];
     BNCDeviceSystem *deviceSystem = [BNCDeviceSystem new];
 
     // The random id is regenerated per app launch.  This maintains existing behavior.
@@ -95,14 +91,9 @@
     self.screenHeight = [BNCSystemObserver screenHeight];
     self.screenScale = [BNCSystemObserver screenScale];
 
-    #if !TARGET_OS_TV
-    BNCTelephony *telephony = [BNCTelephony new];
-    self.carrierName = telephony.carrierName;
-    #endif 
-
     self.locale = [NSLocale currentLocale].localeIdentifier;
-    self.country = [locale country];
-    self.language = [locale language];
+    self.country = [[NSLocale currentLocale] countryCode];
+    self.language = [[NSLocale currentLocale] languageCode];
     self.environment = [BNCSystemObserver environment];
     self.branchSDKVersion = [NSString stringWithFormat:@"ios%@", BNC_SDK_VERSION];
     self.applicationVersion = [BNCSystemObserver applicationVersion];
@@ -136,7 +127,6 @@
         self.isFirstOptIn = NO;
     }
     
-    self.isAdTrackingEnabled = [BNCSystemObserver adTrackingEnabled];
     self.advertiserId = [BNCSystemObserver advertiserIdentifier];
     BOOL ignoreIdfa = [BNCPreferenceHelper sharedInstance].isDebug;
 
@@ -155,65 +145,6 @@
         self.hardwareIdType = @"random";
         self.isRealHardwareId = NO;
     }
-}
-
-- (NSDictionary *)v2dictionary {
-    NSMutableDictionary *dictionary = [NSMutableDictionary new];
-    @synchronized (self) {
-        [self checkAdvertisingIdentifier];
-
-        BOOL disableAdNetworkCallouts = [BNCPreferenceHelper sharedInstance].disableAdNetworkCallouts;
-        if (disableAdNetworkCallouts) {
-            dictionary[@"disable_ad_network_callouts"] = [NSNumber numberWithBool:disableAdNetworkCallouts];
-        }
-
-        if ([BNCPreferenceHelper sharedInstance].isDebug) {
-            dictionary[@"unidentified_device"] = @(YES);
-        } else {
-            [dictionary bnc_safeSetObject:self.vendorId forKey:@"idfv"];
-            [dictionary bnc_safeSetObject:self.advertiserId forKey:@"idfa"];
-        }
-        [dictionary bnc_safeSetObject:[self anonId] forKey:@"anon_id"];
-        [dictionary bnc_safeSetObject:[self localIPAddress] forKey:@"local_ip"];
-
-        [dictionary bnc_safeSetObject:[self optedInStatus] forKey:@"opted_in_status"];
-        if (!self.isAdTrackingEnabled) {
-            dictionary[@"limit_ad_tracking"] = @(YES);
-        }
-
-        if ([BNCPreferenceHelper sharedInstance].limitFacebookTracking) {
-            dictionary[@"limit_facebook_tracking"] = @(YES);
-        }
-        [dictionary bnc_safeSetObject:self.brandName forKey:@"brand"];
-        [dictionary bnc_safeSetObject:self.modelName forKey:@"model"];
-        [dictionary bnc_safeSetObject:self.osName forKey:@"os"];
-        [dictionary bnc_safeSetObject:self.osVersion forKey:@"os_version"];
-        [dictionary bnc_safeSetObject:self.osBuildVersion forKey:@"build"];
-        [dictionary bnc_safeSetObject:self.environment forKey:@"environment"];
-        [dictionary bnc_safeSetObject:self.cpuType forKey:@"cpu_type"];
-        [dictionary bnc_safeSetObject:self.screenScale forKey:@"screen_dpi"];
-        [dictionary bnc_safeSetObject:self.screenHeight forKey:@"screen_height"];
-        [dictionary bnc_safeSetObject:self.screenWidth forKey:@"screen_width"];
-        [dictionary bnc_safeSetObject:self.locale forKey:@"locale"];
-        [dictionary bnc_safeSetObject:self.country forKey:@"country"];
-        [dictionary bnc_safeSetObject:self.language forKey:@"language"];
-        [dictionary bnc_safeSetObject:self.carrierName forKey:@"device_carrier"];
-        [dictionary bnc_safeSetObject:[self connectionType] forKey:@"connection_type"];
-        [dictionary bnc_safeSetObject:[self userAgentString] forKey:@"user_agent"];
-
-        [dictionary bnc_safeSetObject:[BNCPreferenceHelper sharedInstance].userIdentity forKey:@"developer_identity"];
-        
-        [dictionary bnc_safeSetObject:[BNCPreferenceHelper sharedInstance].randomizedDeviceToken forKey:@"randomized_device_token"];
-
-        [dictionary bnc_safeSetObject:self.applicationVersion forKey:@"app_version"];
-
-        [dictionary bnc_safeSetObject:self.pluginName forKey:@"plugin_name"];
-        [dictionary bnc_safeSetObject:self.pluginVersion forKey:@"plugin_version"];
-        dictionary[@"sdk_version"] = BNC_SDK_VERSION;
-        dictionary[@"sdk"] = @"ios";
-    }
-
-    return dictionary;
 }
 
 @end

@@ -309,31 +309,6 @@ BranchCondition _Nonnull BranchConditionRefurbished   = @"REFURBISHED";
     if (callback) callback(@{}, nil);
 }
 
-- (void)userCompletedAction:(NSString *)action {
-    [self userCompletedAction:action withState:nil];
-}
-
-- (void)userCompletedAction:(NSString *)action withState:(NSDictionary *)state {
-    if (state) [self.contentMetadata.customMetadata addEntriesFromDictionary:state];
-    [[BranchEvent customEventWithName:action contentItem:self] logEvent];
-
-    // Maybe list on spotlight --
-    NSDictionary *linkParams = self.dictionary;
-    if (self.locallyIndex && self.canonicalIdentifier && linkParams) {
-
-        NSMutableDictionary *actionPayload = [[NSMutableDictionary alloc] init];
-        actionPayload[BNCCanonicalIdList] = @[self.canonicalIdentifier];
-        actionPayload[self.canonicalIdentifier] = linkParams;
-        if (state) [actionPayload addEntriesFromDictionary:state];
-
-        #if !TARGET_OS_TV
-        if ([action isEqualToString:BNCRegisterViewEvent]) {
-            [self listOnSpotlight];
-        }
-        #endif
-    }
-}
-
 #pragma mark - Link Creation Methods
 
 - (NSString *)getShortUrlWithLinkProperties:(BranchLinkProperties *)linkProperties {
@@ -544,7 +519,6 @@ BranchCondition _Nonnull BranchConditionRefurbished   = @"REFURBISHED";
 #pragma mark - Dictionary Methods
 
 - (NSDictionary *)getParamsForServerRequestWithAddedLinkProperties:(BranchLinkProperties *)linkProperties {
-    // TODO: Add warnings if controlParams contains non-control params
     NSMutableDictionary *temp = self.dictionary;
     [temp addEntriesFromDictionary:[linkProperties.controlParams copy]];
     return temp;

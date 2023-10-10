@@ -40,7 +40,6 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory(void);
 @property (copy, nonatomic) NSString *sessionParams;
 @property (copy, nonatomic) NSString *installParams;
 @property (assign, nonatomic) BOOL isDebug;
-@property (assign, nonatomic) BOOL checkedFacebookAppLinks;
 @property (nonatomic, assign, readwrite) BOOL appleAttributionTokenChecked;
 @property (nonatomic, assign, readwrite) BOOL hasOptedInBefore;
 @property (nonatomic, assign, readwrite) BOOL hasCalledHandleATTAuthorizationStatus;
@@ -57,14 +56,10 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory(void);
 @property (strong, nonatomic) NSDate *previousAppBuildDate;
 @property (assign, nonatomic, readwrite) BOOL disableAdNetworkCallouts;
 
-@property (strong, nonatomic, readwrite) NSURL *faceBookAppLink;
-
 @property (nonatomic, copy, readwrite) NSString *patternListURL;
 @property (strong, nonatomic) NSArray<NSString *> *savedURLPatternList;
 @property (assign, nonatomic) NSInteger savedURLPatternListVersion;
 @property (assign, nonatomic) BOOL dropURLOpen;
-
-@property (assign, nonatomic) BOOL sendCloseRequests;
 
 @property (assign, nonatomic) BOOL trackingDisabled;
 
@@ -82,12 +77,8 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory(void);
 
 + (BNCPreferenceHelper *)sharedInstance;
 
-- (NSString *)getAPIBaseURL;
-- (NSString *)getAPIURL:(NSString *)endpoint;
-- (NSString *)getEndpointFromURL:(NSString *)url;
-
-- (void) setBranchAPIURL:(NSString*)branchAPIURL;
-- (void) setPatternListURL:(NSString*)cdnURL;
+- (void)setBranchAPIURL:(NSString*)branchAPIURL;
+- (void)setPatternListURL:(NSString*)cdnURL;
 
 - (void)setRequestMetadataKey:(NSString *)key value:(NSObject *)value;
 - (NSMutableDictionary *)requestMetadataDictionary;

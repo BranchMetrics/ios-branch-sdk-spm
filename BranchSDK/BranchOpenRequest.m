@@ -7,24 +7,23 @@
 //
 
 #import "BranchOpenRequest.h"
-#import "BNCSystemObserver.h"
 #import "BranchConstants.h"
-#import "NSMutableDictionary+Branch.h"
 #import "BNCEncodingUtils.h"
-#import "BNCCrashlyticsWrapper.h"
 #import "Branch.h"
-#import "BNCApplication.h"
-#import "BNCAppleReceipt.h"
-#import "BNCTuneUtility.h"
-#import "BNCSKAdNetwork.h"
-#import "BNCAppGroupsData.h"
-#import "BNCPartnerParameters.h"
-#import "BNCLog.h"
 
-#if !TARGET_OS_TV
-#import "BranchContentDiscoveryManifest.h"
-#import "BranchContentDiscoverer.h"
-#endif
+// used to save one timestamp...
+#import "BNCApplication.h"
+
+// used to call SKAN based on response
+#import "BNCSKAdNetwork.h"
+
+// handle app clip data for installs. This shouldn't be here imho
+#import "BNCAppGroupsData.h"
+
+#import "BNCLog.h"
+#import "BNCRequestFactory.h"
+
+#import "BNCServerAPI.h"
 
 @interface BranchOpenRequest ()
 @property (assign, nonatomic) BOOL isInstall;
@@ -47,110 +46,13 @@
 }
 
 - (void)makeRequest:(BNCServerInterface *)serverInterface key:(NSString *)key callback:(BNCServerCallback)callback {
-    self.clearLocalURL = FALSE;
-    NSMutableDictionary *params = [[NSMutableDictionary alloc] init];
+    BNCRequestFactory *factory = [[BNCRequestFactory alloc] initWithBranchKey:key];
+    NSDictionary *params = [factory dataForOpen];
 
-    BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper sharedInstance];
-    if (preferenceHelper.randomizedDeviceToken) {
-        params[BRANCH_REQUEST_KEY_RANDOMIZED_DEVICE_TOKEN] = preferenceHelper.randomizedDeviceToken;
-    }
-
-    params[BRANCH_REQUEST_KEY_RANDOMIZED_BUNDLE_TOKEN] = preferenceHelper.randomizedBundleToken;
-    params[BRANCH_REQUEST_KEY_DEBUG] = @(preferenceHelper.isDebug);
-
-    [self safeSetValue:[BNCSystemObserver bundleIdentifier] forKey:BRANCH_REQUEST_KEY_BUNDLE_ID onDict:params];
-    [self safeSetValue:[BNCSystemObserver teamIdentifier] forKey:BRANCH_REQUEST_KEY_TEAM_ID onDict:params];
-    [self safeSetValue:[BNCSystemObserver applicationVersion] forKey:BRANCH_REQUEST_KEY_APP_VERSION onDict:params];
-    [self safeSetValue:[BNCSystemObserver defaultURIScheme] forKey:BRANCH_REQUEST_KEY_URI_SCHEME onDict:params];
-    [self safeSetValue:[NSNumber numberWithBool:preferenceHelper.checkedFacebookAppLinks]
-        forKey:BRANCH_REQUEST_KEY_CHECKED_FACEBOOK_APPLINKS onDict:params];
-    [self safeSetValue:preferenceHelper.linkClickIdentifier forKey:BRANCH_REQUEST_KEY_LINK_IDENTIFIER onDict:params];
-    [self safeSetValue:preferenceHelper.spotlightIdentifier forKey:BRANCH_REQUEST_KEY_SPOTLIGHT_IDENTIFIER onDict:params];
-    [self safeSetValue:preferenceHelper.universalLinkUrl forKey:BRANCH_REQUEST_KEY_UNIVERSAL_LINK_URL onDict:params];
-    [self safeSetValue:preferenceHelper.initialReferrer forKey:BRANCH_REQUEST_KEY_INITIAL_REFERRER onDict:params];
-    [self safeSetValue:preferenceHelper.externalIntentURI forKey:BRANCH_REQUEST_KEY_EXTERNAL_INTENT_URI onDict:params];
-    if (preferenceHelper.limitFacebookTracking)
-        params[@"limit_facebook_tracking"] = (__bridge NSNumber*) kCFBooleanTrue;
-
-    [self safeSetValue:[NSNumber numberWithBool:[[BNCAppleReceipt sharedInstance] isTestFlight]] forKey:BRANCH_REQUEST_KEY_APPLE_TESTFLIGHT onDict:params];
-    
-#if !TARGET_OS_TV
-    NSMutableDictionary *cdDict = [[NSMutableDictionary alloc] init];
-    BranchContentDiscoveryManifest *contentDiscoveryManifest = [BranchContentDiscoveryManifest getInstance];
-    [cdDict bnc_safeSetObject:[contentDiscoveryManifest getManifestVersion] forKey:BRANCH_MANIFEST_VERSION_KEY];
-    [cdDict bnc_safeSetObject:[BNCSystemObserver bundleIdentifier] forKey:BRANCH_BUNDLE_IDENTIFIER];
-    [self safeSetValue:cdDict forKey:BRANCH_CONTENT_DISCOVER_KEY onDict:params];
-#endif
-    
-    if (!preferenceHelper.appleAttributionTokenChecked) {
-        NSString *appleAttributionToken = [BNCSystemObserver appleAttributionToken];
-        if (appleAttributionToken) {
-            preferenceHelper.appleAttributionTokenChecked = YES;
-            [self safeSetValue:appleAttributionToken forKey:BRANCH_REQUEST_KEY_APPLE_ATTRIBUTION_TOKEN onDict:params];
-        }
-    }
-    
-    NSDictionary *partnerParameters = [[BNCPartnerParameters shared] parameterJson];
-    if (partnerParameters.count > 0) {
-        [self safeSetValue:partnerParameters forKey:BRANCH_REQUEST_KEY_PARTNER_PARAMETERS onDict:params];
-    }
-        
-    if (@available(iOS 16.0, *)) {
-        NSString *localURLString = [[BNCPreferenceHelper sharedInstance] localUrl];
-        if(localURLString){
-            NSURL *localURL = [[NSURL alloc] initWithString:localURLString];
-            if (localURL) {
-                [self safeSetValue:localURL.absoluteString forKey:BRANCH_REQUEST_KEY_LOCAL_URL onDict:params];
-                self.clearLocalURL = TRUE;
-            }
-        }
-    }
-
-    BNCApplication *application = [BNCApplication currentApplication];
-    params[@"lastest_update_time"] = BNCWireFormatFromDate(application.currentBuildDate);
-    params[@"previous_update_time"] = BNCWireFormatFromDate(preferenceHelper.previousAppBuildDate);
-    params[@"latest_install_time"] = BNCWireFormatFromDate(application.currentInstallDate);
-    params[@"first_install_time"] = BNCWireFormatFromDate(application.firstInstallDate);
-    params[@"update"] = [self.class appUpdateState];
-
-    if (@available(iOS 16.1, macCatalyst 16.1, *)){
-        if ([BNCPreferenceHelper sharedInstance].invokeRegisterApp) {
-            int currentWindow = [[BNCSKAdNetwork sharedInstance] calculateSKANWindowForTime:[NSDate date]];
-            if (currentWindow == BranchSkanWindowFirst){
-                params[BRANCH_REQUEST_KEY_SKAN_POSTBACK_INDEX] = BRANCH_REQUEST_KEY_VALUE_POSTBACK_SEQUENCE_INDEX_0;
-            } else if (currentWindow == BranchSkanWindowSecond) {
-                params[BRANCH_REQUEST_KEY_SKAN_POSTBACK_INDEX] = BRANCH_REQUEST_KEY_VALUE_POSTBACK_SEQUENCE_INDEX_1;
-            } else if (currentWindow == BranchSkanWindowThird) {
-                params[BRANCH_REQUEST_KEY_SKAN_POSTBACK_INDEX] = BRANCH_REQUEST_KEY_VALUE_POSTBACK_SEQUENCE_INDEX_2;
-            }
-        }
-    }
-    
     [serverInterface postRequest:params
-        url:[preferenceHelper
-        getAPIURL:BRANCH_REQUEST_ENDPOINT_OPEN]
+        url:[[BNCServerAPI sharedInstance] openServiceURL]
         key:key
         callback:callback];
-}
-
-typedef NS_ENUM(NSInteger, BNCUpdateState) {
-    // Values 0-4 are deprecated and ignored by the server
-    BNCUpdateStateIgnored0 = 0,
-    BNCUpdateStateIgnored1 = 1,
-    BNCUpdateStateIgnored2 = 2,
-    BNCUpdateStateIgnored3 = 3,
-    BNCUpdateStateIgnored4 = 4,
-    
-    // App was migrated from Tune SDK to Branch SDK
-    BNCUpdateStateTuneMigration = 5
-};
-
-+ (NSNumber *)appUpdateState {
-    BNCUpdateState update_state = BNCUpdateStateIgnored0;
-    if ([BNCTuneUtility isTuneDataPresent]) {
-        update_state = BNCUpdateStateTuneMigration;
-    }
-    return @(update_state);
 }
 
 - (void)processResponse:(BNCServerResponse *)response error:(NSError *)error {
@@ -258,14 +160,12 @@ typedef NS_ENUM(NSInteger, BNCUpdateState) {
     }
 
     // Clear link identifiers so they don't get reused on the next open
-    preferenceHelper.checkedFacebookAppLinks = NO;
     preferenceHelper.linkClickIdentifier = nil;
     preferenceHelper.spotlightIdentifier = nil;
     preferenceHelper.universalLinkUrl = nil;
     preferenceHelper.externalIntentURI = nil;
     preferenceHelper.referringURL = referringURL;
     preferenceHelper.dropURLOpen = NO;
-
     
     NSString *string = BNCStringFromWireFormat(data[BRANCH_RESPONSE_KEY_RANDOMIZED_BUNDLE_TOKEN]);
     if (!string) {
@@ -277,22 +177,7 @@ typedef NS_ENUM(NSInteger, BNCUpdateState) {
         preferenceHelper.randomizedBundleToken = string;
     }
     
-    if (self.clearLocalURL) {
-        preferenceHelper.localUrl = nil;
-#if !TARGET_OS_TV
-        UIPasteboard.generalPasteboard.URL = nil;
-#endif
-    }
-    
     [BranchOpenRequest releaseOpenResponseLock];
-
-#if !TARGET_OS_TV
-    BranchContentDiscoveryManifest *cdManifest = [BranchContentDiscoveryManifest getInstance];
-    [cdManifest onBranchInitialised:data withUrl:referringURL];
-    if ([cdManifest isCDEnabled]) {
-        [[BranchContentDiscoverer getInstance] startDiscoveryTaskWithManifest:cdManifest];
-    }
-#endif
     
     if (self.isInstall) {
         [[BNCAppGroupsData shared] saveAppClipData];
@@ -313,7 +198,7 @@ typedef NS_ENUM(NSInteger, BNCUpdateState) {
                         BNCLogDebug([NSString stringWithFormat:@"Update conversion value was successful for INSTALL Event"]);
                     }
                 }];
-            } else if (@available(iOS 15.4, *)){
+            } else if (@available(iOS 15.4, macCatalyst 15.4, *)){
                 [[BNCSKAdNetwork sharedInstance] updatePostbackConversionValue:0 completionHandler:^(NSError * _Nullable error) {
                     if (error) {
                         BNCLogError([NSString stringWithFormat:@"Update conversion value failed with error - %@", [error description]]);
@@ -351,7 +236,7 @@ typedef NS_ENUM(NSInteger, BNCUpdateState) {
                         }
                     }];
                 }
-            } else if (@available(iOS 15.4, *)) {
+            } else if (@available(iOS 15.4, macCatalyst 15.4, *)) {
                 [[BNCSKAdNetwork sharedInstance] updatePostbackConversionValue:conversionValue.intValue completionHandler: ^(NSError *error){
                     if (error) {
                         BNCLogError([NSString stringWithFormat:@"Update conversion value failed with error - %@", [error description]]);

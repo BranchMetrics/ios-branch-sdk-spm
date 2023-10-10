@@ -14,6 +14,7 @@
 #import "NSError+Branch.h"
 #import "UIViewController+Branch.h"
 #import "BNCLog.h"
+#import "BNCServerAPI.h"
 
 @interface BranchQRCode()
 @property (nonatomic, copy, readwrite) NSString *buoTitle;
@@ -125,8 +126,7 @@
            completion:(void(^)(NSData * _Nullable qrCode, NSError * _Nullable error))completion {
     
     NSError *error;
-    NSString *branchAPIURL = [BNC_API_BASE_URL copy];
-    NSString *urlString = [NSString stringWithFormat: @"%@/v1/qr-code", branchAPIURL];
+    NSString *urlString = [[BNCServerAPI sharedInstance] qrcodeServiceURL];
     NSURL *url = [NSURL URLWithString: urlString];
     NSURLSession *session = [NSURLSession sharedSession];
     
@@ -178,6 +178,7 @@
     
     [postDataTask resume];
 }
+
 #if !TARGET_OS_TV
 - (void)showShareSheetWithQRCodeFromViewController:(nullable UIViewController *)viewController
                                             anchor:(nullable id)anchorViewOrButtonItem
@@ -211,7 +212,7 @@
                         return;
                     }
 
-                    // Required for iPad/Universal apps on iOS 8+
+                    // Required for iPad/Universal apps
                     if ([presentingViewController respondsToSelector:@selector(popoverPresentationController)]) {
                         if ([anchorViewOrButtonItem isKindOfClass:UIBarButtonItem.class]) {
                             UIBarButtonItem *anchor = (UIBarButtonItem*) anchorViewOrButtonItem;
@@ -237,9 +238,7 @@
     }];
 }
 
-// Helper Functions
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 13000
-- (LPLinkMetadata *)activityViewControllerLinkMetadata:(UIActivityViewController *)activityViewController API_AVAILABLE(ios(13.0)) {
+- (LPLinkMetadata *)activityViewControllerLinkMetadata:(UIActivityViewController *)activityViewController API_AVAILABLE(ios(13.0), macCatalyst(13.1)) {
     LPLinkMetadata * metaData = [[LPLinkMetadata alloc] init];
     metaData.title = self.buoTitle;
     
@@ -254,7 +253,6 @@
     
     return metaData;
 }
-#endif
 #endif
 
 - (BOOL)isValidUrl:(NSString *)urlString{

@@ -37,8 +37,7 @@
     __block NSString *token = nil;
     
 #if !TARGET_OS_TV
-#if !TARGET_OS_MACCATALYST
-    if (@available(iOS 14.3, *)) {
+    if (@available(iOS 14.3, macCatalyst 14.3, *)) {
 
         // We are getting reports on iOS 14.5 that this API can hang, adding a short timeout for now.
         dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
@@ -58,7 +57,6 @@
             BNCLogDebug([NSString stringWithFormat:@"AppleAttributionToken request timed out"]);
         }
     }
-#endif
 #endif
     
     return token;
@@ -81,7 +79,6 @@
             ((NSUUID* (*)(id, SEL))[sharedManager methodForSelector:advertisingIdentifierSelector])
                 (sharedManager, advertisingIdentifierSelector);
         uid = [uuid UUIDString];
-        // limit ad tracking is enabled. iOS 10+
         if ([uid isEqualToString:@"00000000-0000-0000-0000-000000000000"]) {
             uid = nil;
         }
@@ -123,24 +120,6 @@
     
     #endif
     return statusString;
-}
-
-// this value is deprecated on iOS 14+
-+ (BOOL)adTrackingEnabled {
-    #ifdef BRANCH_EXCLUDE_IDFA_CODE
-    return NO;
-    
-    #else
-    Class ASIdentifierManagerClass = NSClassFromString(@"ASIdentifierManager");
-    if (ASIdentifierManagerClass) {
-        SEL sharedManagerSelector = NSSelectorFromString(@"sharedManager");
-        id sharedManager = ((id (*)(id, SEL))[ASIdentifierManagerClass methodForSelector:sharedManagerSelector])(ASIdentifierManagerClass, sharedManagerSelector);
-        SEL advertisingEnabledSelector = NSSelectorFromString(@"isAdvertisingTrackingEnabled");
-        BOOL enabled = ((BOOL (*)(id, SEL))[sharedManager methodForSelector:advertisingEnabledSelector])(sharedManager, advertisingEnabledSelector);
-        return enabled;
-    }
-    return NO;
-    #endif
 }
 
 + (NSString *)defaultURIScheme {
