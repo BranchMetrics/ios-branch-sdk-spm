@@ -1,5 +1,10 @@
 Branch iOS SDK Change Log
 
+v.3.0.2
+- Fix tuist SPM integration when using external instead of package.
+
+Note this patch is only being deployed to the SPM repo as it breaks other integration methods. A more comprehensive fix is in progress.
+
 v.3.0.1
 - Fix organic open when app is already running in background.
 
