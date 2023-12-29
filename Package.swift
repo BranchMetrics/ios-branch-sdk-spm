@@ -26,6 +26,9 @@ let package = Package(
                 .copy("Resources/PrivacyInfo.xcprivacy"),
             ],
             publicHeadersPath: "BranchSDK/Public/",
+            cSettings: [
+                .headerSearchPath("BranchSDK/Private"),
+            ],
             linkerSettings: [
                 .linkedFramework("CoreServices"),
                 .linkedFramework("SystemConfiguration"),
