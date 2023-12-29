@@ -18,11 +18,14 @@ let package = Package(
     targets: [
         .target(
             name: "BranchSDK",
-            path: "BranchSDK",
-            resources: [
-                .copy("PrivacyInfo.xcprivacy"),
+            path: "Sources",
+            sources: [
+                "BranchSDK/"
             ],
-            publicHeadersPath: ".",
+            resources: [
+                .copy("Resources/PrivacyInfo.xcprivacy"),
+            ],
+            publicHeadersPath: "BranchSDK/Public/",
             linkerSettings: [
                 .linkedFramework("CoreServices"),
                 .linkedFramework("SystemConfiguration"),
