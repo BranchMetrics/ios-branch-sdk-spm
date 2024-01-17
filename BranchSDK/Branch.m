@@ -789,6 +789,7 @@ static NSString *bnc_branchKey = nil;
         self.preferenceHelper.referringURL = urlString;
     }
 
+    NSLog(@"ERNESTO: Link %@", urlString);
     [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier];
 
     return [Branch isBranchLink:urlString];
