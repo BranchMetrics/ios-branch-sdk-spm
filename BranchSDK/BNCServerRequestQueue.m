@@ -168,6 +168,7 @@ static inline uint64_t BNCNanoSecondsFromTimeInterval(NSTimeInterval interval) {
             // Install extends open, so only need to check open.
             if ([request isKindOfClass:[BranchOpenRequest class]]) {
                 BNCLogDebugSDK(@"Removing open request.");
+                NSLog(@"ERNESTO: Removed open!");
                 ((BranchOpenRequest *)request).callback = nil;
                 [self remove:request];
                 return YES;

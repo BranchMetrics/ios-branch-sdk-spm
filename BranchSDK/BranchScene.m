@@ -22,6 +22,8 @@
 }
 
 - (void)initSessionWithLaunchOptions:(nullable NSDictionary *)options registerDeepLinkHandler:(void (^ _Nonnull)(NSDictionary * _Nullable params, NSError * _Nullable error, UIScene * _Nullable scene))callback NS_EXTENSION_UNAVAILABLE("BranchScene does not support Extensions") {
+    NSLog(@"ERNESTO: initSession");
+    
     [[Branch getInstance] initSceneSessionWithLaunchOptions:options isReferrable:YES explicitlyRequestedReferrable:NO automaticallyDisplayController:NO registerDeepLinkHandler:^(BNCInitSessionResponse * _Nullable initResponse, NSError * _Nullable error) {
         if (callback) {
             if (initResponse) {
@@ -34,11 +36,15 @@
 }
 
 - (void)scene:(UIScene *)scene continueUserActivity:(NSUserActivity *)userActivity NS_EXTENSION_UNAVAILABLE("BranchScene does not support Extensions") {
+    NSLog(@"ERNESTO: continueUserActivity");
+    
     NSString *identifier = scene.session.persistentIdentifier;
     [[Branch getInstance] continueUserActivity:userActivity sceneIdentifier:identifier];
 }
 
 - (void)scene:(UIScene *)scene openURLContexts:(NSSet<UIOpenURLContext *> *)URLContexts NS_EXTENSION_UNAVAILABLE("BranchScene does not support Extensions") {
+    NSLog(@"ERNESTO: openURLContexts");
+
     if (URLContexts.count != 1) {
         BNCLogWarning(@"Branch only supports a single URLContext");
     }

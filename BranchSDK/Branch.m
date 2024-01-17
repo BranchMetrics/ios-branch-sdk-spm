@@ -2013,7 +2013,8 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
 	if (self.preferenceHelper.randomizedBundleToken) {
 		clazz = [BranchOpenRequest class];
 	}
-
+    
+    NSLog(@"ERNESTO: callCallback? %d", callCallback);
     callbackWithStatus initSessionCallback = ^(BOOL success, NSError *error) {
         // callback on main, this is generally what the client expects and maintains our previous behavior
 		dispatch_async(dispatch_get_main_queue(), ^ {
