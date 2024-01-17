@@ -2050,6 +2050,8 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
         [self removeInstallOrOpen];
 		[BranchOpenRequest setWaitNeededForOpenResponseLock];
 		BranchOpenRequest *req = [[clazz alloc] initWithCallback:initSessionCallback];
+        NSLog(@"ERNESTO: create request object %@", req);
+
 		[self insertRequestAtFront:req];
         self.initializationStatus = BNCInitStatusInitializing;
 		[self processNextQueueItem];

@@ -165,6 +165,8 @@ static inline uint64_t BNCNanoSecondsFromTimeInterval(NSTimeInterval interval) {
     @synchronized (self) {
         for (NSUInteger i = 0; i < self.queue.count; i++) {
             BNCServerRequest *request = [self.queue objectAtIndex:i];
+            NSLog(@"ERNESTO: removal request object %@", request);
+            
             // Install extends open, so only need to check open.
             if ([request isKindOfClass:[BranchOpenRequest class]]) {
                 BNCLogDebugSDK(@"Removing open request.");
