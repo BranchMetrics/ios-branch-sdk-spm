@@ -163,16 +163,18 @@ static inline uint64_t BNCNanoSecondsFromTimeInterval(NSTimeInterval interval) {
 
 - (BOOL)removeInstallOrOpen {
     @synchronized (self) {
+        NSLog(@"ERNESTO: before removal queue %@",self.queue);
         for (NSUInteger i = 0; i < self.queue.count; i++) {
             BNCServerRequest *request = [self.queue objectAtIndex:i];
-            NSLog(@"ERNESTO: removal request object %@", request);
             
             // Install extends open, so only need to check open.
             if ([request isKindOfClass:[BranchOpenRequest class]]) {
                 BNCLogDebugSDK(@"Removing open request.");
-                NSLog(@"ERNESTO: Removed open!");
+                NSLog(@"ERNESTO: remove request object %@", request);
                 ((BranchOpenRequest *)request).callback = nil;
                 [self remove:request];
+                
+                NSLog(@"ERNESTO: after removal queue %@",self.queue);
                 return YES;
             }
         }

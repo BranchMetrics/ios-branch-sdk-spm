@@ -251,7 +251,7 @@
     }
 #endif
     
-    NSLog(@"ERNESTO: branchOpenRequest callback %@", self.callback);
+    NSLog(@"ERNESTO: branchOpenRequest %@ callback %@", self, self.callback);
     if (self.callback) {
         self.callback(YES, nil);
     }
