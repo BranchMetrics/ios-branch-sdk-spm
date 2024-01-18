@@ -1973,6 +1973,7 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
         } else if (self.preferenceHelper.externalIntentURI.length) {
             urlstring = self.preferenceHelper.externalIntentURI;
         }
+        NSLog(@"ERNESTO: initUserSessionAndCallCallback URL %@", urlstring);
 
         if (urlstring.length) {
             NSArray<BNCKeyValue*> *queryItems = [BNCEncodingUtils queryItems:[NSURL URLWithString:urlstring]];
@@ -1988,11 +1989,14 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
 
         // If the session is not yet initialized
         if (self.initializationStatus == BNCInitStatusUninitialized) {
+            NSLog(@"ERNESTO: SDK is uninitiallized, entering init");
+
             [self initializeSessionAndCallCallback:callCallback sceneIdentifier:sceneIdentifier];
         }
         // If the session was initialized, but callCallback was specified, do so.
         else if (callCallback && self.initializationStatus == BNCInitStatusInitialized) {
-
+            NSLog(@"ERNESTO: SDK is initialized, returning last data. This is probably no good.");
+            
             // callback on main, this is generally what the client expects and maintains our previous behavior
             dispatch_async(dispatch_get_main_queue(), ^ {
                 if (self.sceneSessionInitWithCallback) {
@@ -2001,6 +2005,8 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
                     response.universalObject = [self getLatestReferringBranchUniversalObject];
                     response.linkProperties = [self getLatestReferringBranchLinkProperties];
                     response.sceneIdentifier = sceneIdentifier;
+                    
+                    NSLog(@"ERNESTO: Canned data :( %@", response.params);
                     self.sceneSessionInitWithCallback(response, nil);
                 }
             });
