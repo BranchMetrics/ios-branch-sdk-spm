@@ -1989,7 +1989,7 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
 
         // If the session is not yet initialized
         if (self.initializationStatus == BNCInitStatusUninitialized) {
-            NSLog(@"ERNESTO: SDK is uninitiallized, entering init");
+            NSLog(@"ERNESTO: SDK is uninitialized, entering init");
 
             [self initializeSessionAndCallCallback:callCallback sceneIdentifier:sceneIdentifier];
         }
