@@ -362,15 +362,11 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
 }
 
 - (NSString *)universalLinkUrl {
-    NSLog(@"ERNESTO: Read Link %@", self.persistenceDict[BRANCH_PREFS_KEY_UNIVERSAL_LINK_URL]);
-    
     return [self readStringFromDefaults:BRANCH_PREFS_KEY_UNIVERSAL_LINK_URL];
 }
 
 - (void)setUniversalLinkUrl:(NSString *)universalLinkUrl {
     [self writeObjectToDefaults:BRANCH_PREFS_KEY_UNIVERSAL_LINK_URL value:universalLinkUrl];
-    
-    NSLog(@"ERNESTO: Save Link %@", self.persistenceDict[BRANCH_PREFS_KEY_UNIVERSAL_LINK_URL]);
 }
 
 - (NSString *)localUrl {
