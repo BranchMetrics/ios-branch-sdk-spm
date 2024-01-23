@@ -2053,7 +2053,7 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
         if (urlString) {
             req.urlString = urlString;
         }
-        NSLog(@"ERNESTO: create request %@", req);
+        NSLog(@"ERNESTO: create request %@ with link %@", req, req.urlString);
 
 		[self insertRequestAtFront:req];
         self.initializationStatus = BNCInitStatusInitializing;
