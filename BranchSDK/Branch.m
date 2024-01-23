@@ -526,7 +526,7 @@ static NSString *bnc_branchKey = nil;
             // Set the flag:
             [BNCPreferenceHelper sharedInstance].trackingDisabled = NO;
             // Initialize a Branch session:
-            [Branch.getInstance initUserSessionAndCallCallback:NO sceneIdentifier:nil];
+            [Branch.getInstance initUserSessionAndCallCallback:NO sceneIdentifier:nil urlString:nil];
         }
     }
 }
@@ -627,7 +627,7 @@ static NSString *bnc_branchKey = nil;
 
     // If the SDK is already initialized, this means that initSession was called after other lifecycle calls.
     if (self.initializationStatus == BNCInitStatusInitialized) {
-        [self initUserSessionAndCallCallback:YES sceneIdentifier:nil];
+        [self initUserSessionAndCallCallback:YES sceneIdentifier:nil urlString:nil];
         return;
     }
 
@@ -652,7 +652,7 @@ static NSString *bnc_branchKey = nil;
 
 - (void)checkAttributionStatusAndInitialize {
     dispatch_async(self.isolationQueue, ^(){
-        [self initUserSessionAndCallCallback:YES sceneIdentifier:nil];
+        [self initUserSessionAndCallCallback:YES sceneIdentifier:nil urlString:nil];
     });
 }
 
@@ -711,7 +711,7 @@ static NSString *bnc_branchKey = nil;
         self.preferenceHelper.externalIntentURI = pattern;
         self.preferenceHelper.referringURL = pattern;
 
-        [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier];
+        [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier urlString:nil];
         return NO;
     }
 
@@ -755,7 +755,7 @@ static NSString *bnc_branchKey = nil;
             self.preferenceHelper.linkClickIdentifier = params[@"link_click_id"];
         }
     }
-    [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier];
+    [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier urlString:url.absoluteString];
     return handled;
 }
 
@@ -789,7 +789,7 @@ static NSString *bnc_branchKey = nil;
         self.preferenceHelper.referringURL = urlString;
     }
 
-    [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier];
+    [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier urlString:urlString];
 
     return [Branch isBranchLink:urlString];
 }
@@ -831,7 +831,8 @@ static NSString *bnc_branchKey = nil;
     }
     #endif
 
-    [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier];
+    // TODO: why would we get here if it wasn't handled as a Universal Link?
+    [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier urlString:userActivity.webpageURL.absoluteString];
 
     return spotlightIdentifier != nil;
 }
@@ -1732,7 +1733,7 @@ static NSString *bnc_branchKey = nil;
     if (!Branch.trackingDisabled &&
         self.initializationStatus != BNCInitStatusInitialized &&
         ![self.requestQueue containsInstallOrOpen]) {
-        [self initUserSessionAndCallCallback:YES sceneIdentifier:nil];
+        [self initUserSessionAndCallCallback:YES sceneIdentifier:nil urlString:nil];
     }
 }
 
@@ -1950,11 +1951,11 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
 - (void)initSafetyCheck {
     if (self.initializationStatus == BNCInitStatusUninitialized) {
         BNCLogDebug(@"Branch avoided an error by preemptively initializing.");
-        [self initUserSessionAndCallCallback:NO sceneIdentifier:nil];
+        [self initUserSessionAndCallCallback:NO sceneIdentifier:nil urlString:nil];
     }
 }
 
-- (void)initUserSessionAndCallCallback:(BOOL)callCallback sceneIdentifier:(NSString *)sceneIdentifier {
+- (void)initUserSessionAndCallCallback:(BOOL)callCallback sceneIdentifier:(NSString *)sceneIdentifier urlString:(NSString *)urlString {
     
     // ignore lifecycle calls while waiting for a plugin runtime.
     @synchronized (self) {
@@ -1966,15 +1967,16 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
     }
     
     dispatch_async(self.isolationQueue, ^(){
-        NSString *urlstring = nil;
-        if (self.preferenceHelper.universalLinkUrl.length) {
-            urlstring = self.preferenceHelper.universalLinkUrl;
-        } else if (self.preferenceHelper.externalIntentURI.length) {
-            urlstring = self.preferenceHelper.externalIntentURI;
-        }
+        // TODO: Remove after testing
+//        NSString *urlstring = nil;
+//        if (self.preferenceHelper.universalLinkUrl.length) {
+//            urlstring = self.preferenceHelper.universalLinkUrl;
+//        } else if (self.preferenceHelper.externalIntentURI.length) {
+//            urlstring = self.preferenceHelper.externalIntentURI;
+//        }
 
-        if (urlstring.length) {
-            NSArray<BNCKeyValue*> *queryItems = [BNCEncodingUtils queryItems:[NSURL URLWithString:urlstring]];
+        if (urlString.length) {
+            NSArray<BNCKeyValue*> *queryItems = [BNCEncodingUtils queryItems:[NSURL URLWithString:urlString]];
             for (BNCKeyValue*item in queryItems) {
                 if ([item.key isEqualToString:@"BranchLogLevel"]) {
                     BNCLogLevel logLevel = BNCLogLevelFromString(item.value);
@@ -1987,7 +1989,7 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
 
         // If the session is not yet initialized
         if (self.initializationStatus == BNCInitStatusUninitialized) {
-            [self initializeSessionAndCallCallback:callCallback sceneIdentifier:sceneIdentifier];
+            [self initializeSessionAndCallCallback:callCallback sceneIdentifier:sceneIdentifier urlString:urlString];
         }
         // If the session was initialized, but callCallback was specified, do so.
         else if (callCallback && self.initializationStatus == BNCInitStatusInitialized) {
@@ -2008,7 +2010,7 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
 }
 
 // only called from initUserSessionAndCallCallback!
-- (void)initializeSessionAndCallCallback:(BOOL)callCallback sceneIdentifier:(NSString *)sceneIdentifier {
+- (void)initializeSessionAndCallCallback:(BOOL)callCallback sceneIdentifier:(NSString *)sceneIdentifier urlString:(NSString *)urlString {
 	Class clazz = [BranchInstallRequest class];
 	if (self.preferenceHelper.randomizedBundleToken) {
 		clazz = [BranchOpenRequest class];
@@ -2048,6 +2050,9 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
         [self removeInstallOrOpen];
 		[BranchOpenRequest setWaitNeededForOpenResponseLock];
 		BranchOpenRequest *req = [[clazz alloc] initWithCallback:initSessionCallback];
+        if (urlString) {
+            req.urlString = urlString;
+        }
         NSLog(@"ERNESTO: create request %@", req);
 
 		[self insertRequestAtFront:req];
