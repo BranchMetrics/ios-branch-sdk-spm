@@ -2047,15 +2047,19 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
     // Fix the queue order and open --
 
 	@synchronized (self) {
-        [self removeInstallOrOpen];
+        
+        // This assumes that the last open is the one we care about.
+        // Maybe this isn't always true when two opens come in very rapidly...
+        //[self removeInstallOrOpen];
 		[BranchOpenRequest setWaitNeededForOpenResponseLock];
 		BranchOpenRequest *req = [[clazz alloc] initWithCallback:initSessionCallback];
         if (urlString) {
             req.urlString = urlString;
         }
+        
         NSLog(@"ERNESTO: create request %@ callback %@ link %@", req, req.callback, req.urlString);
         dispatch_async(self.isolationQueue, ^(){
-            [self insertRequestAtFront:req];
+            //[self insertRequestAtFront:req];
             self.initializationStatus = BNCInitStatusInitializing;
             [self processNextQueueItem];
         });
