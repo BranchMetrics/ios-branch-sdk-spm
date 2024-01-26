@@ -161,20 +161,20 @@ static inline uint64_t BNCNanoSecondsFromTimeInterval(NSTimeInterval interval) {
     }
 }
 
-- (BOOL)removeInstallOrOpen {
+- (BranchOpenRequest *)removeInstallOrOpen {
     @synchronized (self) {
         for (NSUInteger i = 0; i < self.queue.count; i++) {
             BNCServerRequest *request = [self.queue objectAtIndex:i];
             
             // Install extends open, so only need to check open.
             if ([request isKindOfClass:[BranchOpenRequest class]]) {
-                BNCLogDebugSDK(@"Removing open request.");
+                BNCLogDebugSDK(@"Removing open request and returning it.");
                 ((BranchOpenRequest *)request).callback = nil;
                 [self remove:request];
-                return YES;
+                return (BranchOpenRequest *)request;
             }
         }
-        return NO;
+        return nil;
     }
 }
 
