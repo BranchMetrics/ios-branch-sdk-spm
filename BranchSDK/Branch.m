@@ -2050,21 +2050,19 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
         dispatch_async(self.isolationQueue, ^(){
             [BranchOpenRequest setWaitNeededForOpenResponseLock];
             
-            BOOL isNew = NO;
+            // check for an existing install or open
             BranchOpenRequest *req = [self removeInstallOrOpen];
             if (!req) {
-                isNew = YES;
                 req = [[clazz alloc] initWithCallback:initSessionCallback];
+            }
+            if (!req.callback) {
+                req.callback = initSessionCallback;
             }
             if (urlString) {
                 req.urlString = urlString;
             }
             
-            if (isNew) {
-                NSLog(@"ERNESTO: created request %@ callback %@ link %@", req, req.callback, req.urlString);
-            } else {
-                NSLog(@"ERNESTO: updated request %@ callback %@ link %@", req, req.callback, req.urlString);
-            }
+            NSLog(@"ERNESTO: created request %@ callback %@ link %@", req, req.callback, req.urlString);
             
             [self insertRequestAtFront:req];
             self.initializationStatus = BNCInitStatusInitializing;
