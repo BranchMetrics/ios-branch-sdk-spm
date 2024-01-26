@@ -2047,30 +2047,31 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
     // Fix the queue order and open --
 
 	@synchronized (self) {
-        
-        // This assumes that the last open is the one we care about.
-        // Maybe this isn't always true when two opens come in very rapidly...
-        BranchOpenRequest *existingRequest = [self removeInstallOrOpen];
-        NSString *existingURL = existingRequest.urlString;
-        if (existingURL) {
-            if (![existingURL isEqualToString:urlString]) {
-                NSLog(@"ERNESTO: Existing URL %@", existingURL);
-                NSLog(@"ERNESTO: New URL %@", urlString);
-                if (!urlString) {
-                    NSLog(@"ERNESTO: Since the new URL is nil, using the existing URL.");
-                    urlString = existingURL;
+        dispatch_async(self.isolationQueue, ^(){
+            
+            // This assumes that the last open is the one we care about.
+            // Maybe this isn't always true when two opens come in very rapidly...
+            BranchOpenRequest *existingRequest = [self removeInstallOrOpen];
+            NSString *existingURL = existingRequest.urlString;
+            if (existingURL) {
+                if (![existingURL isEqualToString:urlString]) {
+                    NSLog(@"ERNESTO: Existing URL %@", existingURL);
+                    NSLog(@"ERNESTO: New URL %@", urlString);
+//                    if (!urlString) {
+//                        NSLog(@"ERNESTO: Since the new URL is nil, using the existing URL.");
+//                        urlString = existingURL;
+//                    }
                 }
             }
-        }
-		
-        [BranchOpenRequest setWaitNeededForOpenResponseLock];
-		BranchOpenRequest *req = [[clazz alloc] initWithCallback:initSessionCallback];
-        if (urlString) {
-            req.urlString = urlString;
-        }
-        
-        NSLog(@"ERNESTO: create request %@ callback %@ link %@", req, req.callback, req.urlString);
-        dispatch_async(self.isolationQueue, ^(){
+            
+            [BranchOpenRequest setWaitNeededForOpenResponseLock];
+            BranchOpenRequest *req = [[clazz alloc] initWithCallback:initSessionCallback];
+            if (urlString) {
+                req.urlString = urlString;
+            }
+            
+            NSLog(@"ERNESTO: create request %@ callback %@ link %@", req, req.callback, req.urlString);
+            
             [self insertRequestAtFront:req];
             self.initializationStatus = BNCInitStatusInitializing;
             [self processNextQueueItem];
