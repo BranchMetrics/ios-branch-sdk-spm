@@ -2059,7 +2059,7 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
         
         NSLog(@"ERNESTO: create request %@ callback %@ link %@", req, req.callback, req.urlString);
         dispatch_async(self.isolationQueue, ^(){
-            //[self insertRequestAtFront:req];
+            [self insertRequestAtFront:req];
             self.initializationStatus = BNCInitStatusInitializing;
             [self processNextQueueItem];
         });
