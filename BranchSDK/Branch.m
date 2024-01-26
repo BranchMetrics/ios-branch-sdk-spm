@@ -1763,8 +1763,7 @@ static NSString *bnc_branchKey = nil;
 - (void)insertRequestAtFront:(BNCServerRequest *)req {
     if (self.networkCount == 0) {
         [self.requestQueue insert:req at:0];
-    }
-    else {
+    } else {
         [self.requestQueue insert:req at:1];
     }
 }
@@ -2044,17 +2043,19 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
         object:self
         userInfo:userInfo];
 
-    // Fix the queue order and open --
-
 	@synchronized (self) {
         dispatch_async(self.isolationQueue, ^(){
             [BranchOpenRequest setWaitNeededForOpenResponseLock];
             
             // check for an existing install or open
-            BranchOpenRequest *req = [self removeInstallOrOpen];
+            BranchOpenRequest *req = [self.requestQueue findExistingInstallOrOpen];
+            
+            // might need to check if the existing request is old
             if (!req) {
                 req = [[clazz alloc] initWithCallback:initSessionCallback];
+                [self.requestQueue insert:req at:0];
             }
+            
             if (!req.callback) {
                 req.callback = initSessionCallback;
             }
@@ -2063,24 +2064,22 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
             }
             
             NSLog(@"ERNESTO: created request %@ callback %@ link %@", req, req.callback, req.urlString);
-            
-            [self insertRequestAtFront:req];
             self.initializationStatus = BNCInitStatusInitializing;
             [self processNextQueueItem];
         });
 	}
 }
 
-- (BranchOpenRequest *)removeInstallOrOpen {
-    BranchOpenRequest *request;
-	@synchronized (self) {
-        request = [self.requestQueue removeInstallOrOpen];
-		if (request != nil) {
-			self.networkCount = 0;
-        }
-    }
-    return request;
-}
+//- (BranchOpenRequest *)removeInstallOrOpen {
+//    BranchOpenRequest *request;
+//	@synchronized (self) {
+//        request = [self.requestQueue findExistingInstallOrOpen];
+//		if (request != nil) {
+//			self.networkCount = 0;
+//        }
+//    }
+//    return request;
+//}
 
 - (void)handleInitSuccessAndCallCallback:(BOOL)callCallback sceneIdentifier:(NSString *)sceneIdentifier {
 
