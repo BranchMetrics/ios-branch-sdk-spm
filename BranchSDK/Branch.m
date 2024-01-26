@@ -2050,10 +2050,10 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
         dispatch_async(self.isolationQueue, ^(){
             [BranchOpenRequest setWaitNeededForOpenResponseLock];
             
-            BOOL isNew = YES;
+            BOOL isNew = NO;
             BranchOpenRequest *req = [self removeInstallOrOpen];
             if (!req) {
-                isNew = NO;
+                isNew = YES;
                 req = [[clazz alloc] initWithCallback:initSessionCallback];
             }
             if (urlString) {
