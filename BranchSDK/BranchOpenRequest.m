@@ -251,7 +251,6 @@
     }
 #endif
     
-    NSLog(@"ERNESTO: request %@ callback %@ link %@", self, self.callback, self.urlString);
     if (self.callback) {
         self.callback(YES, nil);
     }

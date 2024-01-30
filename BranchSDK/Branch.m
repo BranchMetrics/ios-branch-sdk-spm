@@ -644,17 +644,10 @@ static NSString *bnc_branchKey = nil;
 
     // Handle case where there's no URI scheme or Universal Link.
     if (![options.allKeys containsObject:UIApplicationLaunchOptionsURLKey] && ![options.allKeys containsObject:UIApplicationLaunchOptionsUserActivityDictionaryKey]) {
-
-        // queue up async attribution checks
-        [self checkAttributionStatusAndInitialize];
+        [self initUserSessionAndCallCallback:YES sceneIdentifier:nil urlString:nil];
     }
 }
 
-- (void)checkAttributionStatusAndInitialize {
-    dispatch_async(self.isolationQueue, ^(){
-        [self initUserSessionAndCallCallback:YES sceneIdentifier:nil urlString:nil];
-    });
-}
 
 //these params will be added
 - (void)setDeepLinkDebugMode:(NSDictionary *)debugParams {
@@ -1730,20 +1723,26 @@ static NSString *bnc_branchKey = nil;
 #pragma mark - Application State Change methods
 
 - (void)applicationDidBecomeActive {
-    if (!Branch.trackingDisabled &&
-        self.initializationStatus != BNCInitStatusInitialized &&
-        ![self.requestQueue containsInstallOrOpen]) {
-        [self initUserSessionAndCallCallback:YES sceneIdentifier:nil urlString:nil];
-    }
+    NSLog(@"ERNESTO: app become active");
+    dispatch_async(self.isolationQueue, ^(){
+        BOOL installOrOpenInQueue = [self.requestQueue containsInstallOrOpen];
+        if (!Branch.trackingDisabled && self.initializationStatus != BNCInitStatusInitialized && !installOrOpenInQueue) {
+            NSLog(@"ERNESTO: Need new organic open");
+            [self initUserSessionAndCallCallback:YES sceneIdentifier:nil urlString:nil];
+        }
+    });
 }
 
 - (void)applicationWillResignActive {
-    if (!Branch.trackingDisabled) {
-        self.initializationStatus = BNCInitStatusUninitialized;
-        [self.requestQueue persistImmediately];
-        [BranchOpenRequest setWaitNeededForOpenResponseLock];
-        BNCLogDebugSDK(@"Application resigned active.");
-    }
+    NSLog(@"ERNESTO: app resign active");
+    dispatch_async(self.isolationQueue, ^(){
+        if (!Branch.trackingDisabled) {
+            self.initializationStatus = BNCInitStatusUninitialized;
+            [self.requestQueue persistImmediately];
+            [BranchOpenRequest setWaitNeededForOpenResponseLock];
+            BNCLogDebugSDK(@"Application resigned active.");
+        }
+    });
 }
 
 #pragma mark - Queue management
@@ -2047,23 +2046,30 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
         dispatch_async(self.isolationQueue, ^(){
             [BranchOpenRequest setWaitNeededForOpenResponseLock];
             
-            // check for an existing install or open
+            BOOL isNewRequest = NO;
             BranchOpenRequest *req = [self.requestQueue findExistingInstallOrOpen];
             
             // might need to check if the existing request is old
             if (!req) {
                 req = [[clazz alloc] initWithCallback:initSessionCallback];
                 [self.requestQueue insert:req at:0];
+                isNewRequest = YES;
             }
             
             if (!req.callback) {
                 req.callback = initSessionCallback;
             }
+            
             if (urlString) {
                 req.urlString = urlString;
             }
             
-            NSLog(@"ERNESTO: created request %@ callback %@ link %@", req, req.callback, req.urlString);
+            if (isNewRequest) {
+                NSLog(@"ERNESTO: new request %@ callback %@ link %@", req, req.callback, req.urlString);
+            } else {
+                NSLog(@"ERNESTO: existing request %@ callback %@ link %@", req, req.callback, req.urlString);
+            }
+            
             self.initializationStatus = BNCInitStatusInitializing;
             [self processNextQueueItem];
         });
