@@ -861,15 +861,14 @@ static NSString *bnc_branchKey = nil;
 - (void)handlePushNotification:(NSDictionary *)userInfo {
     // look for a branch shortlink in the payload (shortlink because iOS7 only supports 256 bytes)
     NSString *urlStr = [userInfo objectForKey:BRANCH_PUSH_NOTIFICATION_PAYLOAD_KEY];
-    if (urlStr.length) {
-        // reusing this field, so as not to create yet another url slot on prefshelper
-        self.preferenceHelper.universalLinkUrl = urlStr;
-        self.preferenceHelper.referringURL = urlStr;
-    }
+//    if (urlStr.length) {
+//        // reusing this field, so as not to create yet another url slot on prefshelper
+//        self.preferenceHelper.universalLinkUrl = urlStr;
+//        self.preferenceHelper.referringURL = urlStr;
+//    }
 
     // If app is active, then close out the session and start a new one.
     // Else the URL will be handled by `applicationDidBecomeActive`.
-
     Class UIApplicationClass = NSClassFromString(@"UIApplication");
     if (urlStr && [[UIApplicationClass sharedApplication] applicationState] == UIApplicationStateActive) {
         NSURL *url = [NSURL URLWithString:urlStr];
@@ -2049,7 +2048,6 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
             BOOL isNewRequest = NO;
             BranchOpenRequest *req = [self.requestQueue findExistingInstallOrOpen];
             
-            // might need to check if the existing request is old
             if (!req) {
                 req = [[clazz alloc] initWithCallback:initSessionCallback];
                 [self.requestQueue insert:req at:0];
