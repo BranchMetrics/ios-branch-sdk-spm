@@ -704,6 +704,7 @@ static NSString *bnc_branchKey = nil;
         self.preferenceHelper.externalIntentURI = pattern;
         self.preferenceHelper.referringURL = pattern;
 
+        NSLog(@"ERNESTO: dropping url open due to regex match? %@", pattern);
         [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier urlString:nil];
         return NO;
     }
@@ -1726,7 +1727,7 @@ static NSString *bnc_branchKey = nil;
     dispatch_async(self.isolationQueue, ^(){
         BOOL installOrOpenInQueue = [self.requestQueue containsInstallOrOpen];
         if (!Branch.trackingDisabled && self.initializationStatus != BNCInitStatusInitialized && !installOrOpenInQueue) {
-            NSLog(@"ERNESTO: Need new organic open");
+            NSLog(@"ERNESTO: need new organic open");
             [self initUserSessionAndCallCallback:YES sceneIdentifier:nil urlString:nil];
         }
     });

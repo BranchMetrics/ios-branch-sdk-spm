@@ -58,6 +58,8 @@
 - (void)processResponse:(BNCServerResponse *)response error:(NSError *)error {
     BNCPreferenceHelper *preferenceHelper = [BNCPreferenceHelper sharedInstance];
     if (error && preferenceHelper.dropURLOpen) {
+        NSLog(@"ERNESTO: Ignoring server response due to regex match, using canned data!");
+        
         // Ignore this response from the server. Dummy up a response:
         error = nil;
         response.data = @{
@@ -143,13 +145,9 @@
     }
 
     NSString *referringURL = nil;
-    if (preferenceHelper.universalLinkUrl.length) {
-        referringURL = preferenceHelper.universalLinkUrl;
-    }
-    else if (preferenceHelper.externalIntentURI.length) {
-        referringURL = preferenceHelper.externalIntentURI;
-    }
-    else {
+    if (self.urlString.length > 0) {
+        referringURL = self.urlString;
+    } else {
         NSDictionary *sessionDataDict = [BNCEncodingUtils decodeJsonStringToDictionary:sessionData];
         NSString *link = sessionDataDict[BRANCH_RESPONSE_KEY_BRANCH_REFERRING_LINK];
         if ([link isKindOfClass:[NSString class]]) {
