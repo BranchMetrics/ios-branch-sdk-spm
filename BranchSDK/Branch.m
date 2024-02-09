@@ -2037,35 +2037,34 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
 	@synchronized (self) {
         dispatch_async(self.isolationQueue, ^(){
             [BranchOpenRequest setWaitNeededForOpenResponseLock];
-            
-            BOOL isNewRequest = NO;
             BranchOpenRequest *req = [self.requestQueue findExistingInstallOrOpen];
             
-            if (!req && !req.requestSent) {
-                Class clazz = [BranchInstallRequest class];
-                if (req.requestSent || self.preferenceHelper.randomizedBundleToken) {
-                    clazz = [BranchOpenRequest class];
+            // nothing on queue, we need an new install or open. This may have link data
+            if (!req) {
+                if (self.preferenceHelper.randomizedBundleToken) {
+                    req = [[BranchOpenRequest alloc] initWithCallback:initSessionCallback];
+                } else {
+                    req = [[BranchInstallRequest alloc] initWithCallback:initSessionCallback];
                 }
-                
-                req = [[clazz alloc] initWithCallback:initSessionCallback];
-                [self.requestQueue insert:req at:0];
-                isNewRequest = YES;
-            }
-            
-            // callback can be missing if initSession was not called prior to link arrival
-            if (!req.callback) {
                 req.callback = initSessionCallback;
-            }
-            
-            // urlString set if a link came in with the lifecycle call
-            if (urlString) {
                 req.urlString = urlString;
-            }
-            
-            if (isNewRequest) {
+                
+                [self.requestQueue insert:req at:0];
                 NSLog(@"ERNESTO: new request %@ callback %@ link %@", req, req.callback, req.urlString);
+
             } else {
-                NSLog(@"ERNESTO: existing request %@ callback %@ link %@", req, req.callback, req.urlString);
+                
+                // new link arrival but an install or open is already on queue? need a new open for link resolution.
+                if (urlString) {
+                    req = [[BranchOpenRequest alloc] initWithCallback:initSessionCallback];
+                    req.callback = initSessionCallback;
+                    req.urlString = urlString;
+                    
+                    // put it behind the one that's already on queue
+                    [self.requestQueue insert:req at:1];
+                    NSLog(@"ERNESTO: Link resolution request!");
+                    NSLog(@"ERNESTO: new request %@ callback %@ link %@", req, req.callback, req.urlString);
+                }
             }
             
             self.initializationStatus = BNCInitStatusInitializing;

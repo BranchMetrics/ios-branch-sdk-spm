@@ -40,29 +40,12 @@
     if ((self = [super init])) {
         _callback = callback;
         _isInstall = isInstall;
-        _requestSent = NO;
     }
 
     return self;
 }
 
-- (void)setRequestSent:(BOOL)requestSent {
-    @synchronized (self) {
-        _requestSent = requestSent;
-    }
-}
-
-- (BOOL)isRequestSent {
-    @synchronized (self) {
-        return _requestSent;
-    }
-}
-
 - (void)makeRequest:(BNCServerInterface *)serverInterface key:(NSString *)key callback:(BNCServerCallback)callback {
-    @synchronized (self) {
-        self.requestSent = YES;
-    }
-    
     BNCRequestFactory *factory = [[BNCRequestFactory alloc] initWithBranchKey:key];
     NSDictionary *params = [factory dataForOpenWithURLString:self.urlString];
 

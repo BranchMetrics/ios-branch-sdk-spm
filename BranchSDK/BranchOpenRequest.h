@@ -14,9 +14,6 @@
 // URL that triggered this install or open event
 @property (nonatomic, copy, readwrite) NSString *urlString;
 
-// workaround to indicate this request is in flight and it is unsafe to update this one
-@property (assign, nonatomic) BOOL requestSent;
-
 @property (nonatomic, copy) callbackWithStatus callback;
 
 + (void) waitForOpenResponseLock;
