@@ -704,7 +704,6 @@ static NSString *bnc_branchKey = nil;
         self.preferenceHelper.externalIntentURI = pattern;
         self.preferenceHelper.referringURL = pattern;
 
-        NSLog(@"ERNESTO: dropping url open due to regex match? %@", pattern);
         [self initUserSessionAndCallCallback:YES sceneIdentifier:sceneIdentifier urlString:nil];
         return NO;
     }
@@ -1800,7 +1799,9 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
 
         [self.requestQueue dequeue];
         self.networkCount = 0;
-        [self processNextQueueItem];
+        dispatch_async(self.isolationQueue, ^{
+            [self processNextQueueItem];
+        });
     }
     // On network problems, or Branch down, call the other callbacks and stop processing.
     else {
@@ -2009,38 +2010,29 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
 
 // only called from initUserSessionAndCallCallback!
 - (void)initializeSessionAndCallCallback:(BOOL)callCallback sceneIdentifier:(NSString *)sceneIdentifier urlString:(NSString *)urlString {
-	Class clazz = [BranchInstallRequest class];
-	if (self.preferenceHelper.randomizedBundleToken) {
-		clazz = [BranchOpenRequest class];
-	}
-    
-    callbackWithStatus initSessionCallback = ^(BOOL success, NSError *error) {
-        // callback on main, this is generally what the client expects and maintains our previous behavior
-		dispatch_async(dispatch_get_main_queue(), ^ {
-			if (error) {
-				[self handleInitFailure:error callCallback:callCallback sceneIdentifier:(NSString *)sceneIdentifier];
-			} else {
-				[self handleInitSuccessAndCallCallback:callCallback sceneIdentifier:(NSString *)sceneIdentifier];
-			}
-		});
-    };
 
-    // Notify everyone --
-
-    NSURL *URL =
-        (self.preferenceHelper.referringURL.length)
-        ? [NSURL URLWithString:self.preferenceHelper.referringURL]
-        : nil;
-
-    if ([self.delegate respondsToSelector:@selector(branch:willStartSessionWithURL:)])
+    // BranchDelegate willStartSessionWithURL notification
+    NSURL *URL = (self.preferenceHelper.referringURL.length) ? [NSURL URLWithString:self.preferenceHelper.referringURL] : nil;
+    if ([self.delegate respondsToSelector:@selector(branch:willStartSessionWithURL:)]) {
         [self.delegate branch:self willStartSessionWithURL:URL];
+    }
 
+    // BranchWilLStartSession NSNotification
     NSMutableDictionary *userInfo = [NSMutableDictionary new];
     userInfo[BranchURLKey] = URL;
-    [[NSNotificationCenter defaultCenter]
-        postNotificationName:BranchWillStartSessionNotification
-        object:self
-        userInfo:userInfo];
+    [[NSNotificationCenter defaultCenter] postNotificationName:BranchWillStartSessionNotification object:self userInfo:userInfo];
+    
+    // Prepare callback block
+    callbackWithStatus initSessionCallback = ^(BOOL success, NSError *error) {
+        // callback on main, this is generally what the client expects and maintains our previous behavior
+        dispatch_async(dispatch_get_main_queue(), ^ {
+            if (error) {
+                [self handleInitFailure:error callCallback:callCallback sceneIdentifier:(NSString *)sceneIdentifier];
+            } else {
+                [self handleInitSuccessAndCallCallback:callCallback sceneIdentifier:(NSString *)sceneIdentifier];
+            }
+        });
+    };
 
 	@synchronized (self) {
         dispatch_async(self.isolationQueue, ^(){
@@ -2049,16 +2041,23 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
             BOOL isNewRequest = NO;
             BranchOpenRequest *req = [self.requestQueue findExistingInstallOrOpen];
             
-            if (!req) {
+            if (!req && !req.requestSent) {
+                Class clazz = [BranchInstallRequest class];
+                if (req.requestSent || self.preferenceHelper.randomizedBundleToken) {
+                    clazz = [BranchOpenRequest class];
+                }
+                
                 req = [[clazz alloc] initWithCallback:initSessionCallback];
                 [self.requestQueue insert:req at:0];
                 isNewRequest = YES;
             }
             
+            // callback can be missing if initSession was not called prior to link arrival
             if (!req.callback) {
                 req.callback = initSessionCallback;
             }
             
+            // urlString set if a link came in with the lifecycle call
             if (urlString) {
                 req.urlString = urlString;
             }

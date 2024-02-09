@@ -21,18 +21,15 @@
 static NSString * const BRANCH_QUEUE_FILE = @"BNCServerRequestQueue";
 static NSTimeInterval const BATCH_WRITE_TIMEOUT = 3.0;
 
-
 static inline uint64_t BNCNanoSecondsFromTimeInterval(NSTimeInterval interval) {
     return interval * ((NSTimeInterval) NSEC_PER_SEC);
 }
-
 
 @interface BNCServerRequestQueue()
 @property (strong, nonatomic) NSMutableArray<BNCServerRequest *> *queue;
 @property (strong, nonatomic) dispatch_queue_t asyncQueue;
 @property (strong, nonatomic) dispatch_source_t persistTimer;
 @end
-
 
 @implementation BNCServerRequestQueue
 
@@ -166,7 +163,7 @@ static inline uint64_t BNCNanoSecondsFromTimeInterval(NSTimeInterval interval) {
         for (NSUInteger i = 0; i < self.queue.count; i++) {
             BNCServerRequest *request = [self.queue objectAtIndex:i];
             
-            // Install extends open, so only need to check open.
+            // Install subclasses open, so only need to check open
             if ([request isKindOfClass:[BranchOpenRequest class]]) {
                 BNCLogDebugSDK(@"Returning the Install/Open Request");
                 // ((BranchOpenRequest *)request).callback = nil;
