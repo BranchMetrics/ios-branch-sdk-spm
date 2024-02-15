@@ -1,5 +1,19 @@
 Branch iOS SDK Change Log
 
+v.3.2.0
+- Add support for setting DMA compliance parameters.
+- Update logging to allow a custom callback so clients may reroute Branch Logs to their logging infrastructure.
+- Update logging to use `os_log` private by default.
+- New custom server URL API. When set the SDK will always use this endpoint, the Privacy Manifest should be edited to match.
+- Update cocoapods, frameworks and tests to use SPM layout.
+- Fix crash when using pre-built xcframework on iOS 12
+- Improve Swift compatibility by removing API variations that differ only by an NSError.
+
+v.3.1.0
+- Fix tuist SPM integration when using external by switching to a more typical SPM layout.
+
+Note this release is only being deployed to the SPM repo to unblock tuist users. A follow up release will address compatibility between this bugfix and other integration methods. 
+
 v.3.0.1
 - Fix organic open when app is already running in background.
 
