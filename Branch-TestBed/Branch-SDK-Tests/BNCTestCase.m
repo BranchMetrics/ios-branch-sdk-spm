@@ -9,7 +9,6 @@
 */
 
 #import "BNCTestCase.h"
-#import "BNCLog.h"
 #import "Branch.h"
 #import "BNCApplication+BNCTest.h"
 
@@ -65,19 +64,6 @@ BOOL BNCTestStringMatchesRegex(NSString *string, NSString *regex) {
     }];
 }
 
-- (id)stringMatchingPattern:(NSString *)pattern {
-    NSRegularExpression *regex =
-        [[NSRegularExpression alloc]
-            initWithPattern:pattern
-            options:NSRegularExpressionCaseInsensitive
-            error:nil];
-
-    return [OCMArg checkWithBlock:^BOOL(NSString *param) {
-        return [regex numberOfMatchesInString:param
-            options:kNilOptions range:NSMakeRange(0, param.length)] > 0;
-    }];
-}
-
 - (NSString*) stringFromBundleWithKey:(NSString*)key {
     NSString *const kItemNotFound = @"<Item-Not-Found>";
     NSString *resource =
@@ -109,7 +95,6 @@ static NSString* savedRandomizedBundleToken = nil;
 
 + (void) initialize {
     if (self != [BNCTestCase self]) return;
-    BNCLogSetDisplayLevel(BNCLogLevelAll);
 
     savedRandomizedBundleToken = [BNCPreferenceHelper sharedInstance].randomizedBundleToken;
     [Branch clearAll];
