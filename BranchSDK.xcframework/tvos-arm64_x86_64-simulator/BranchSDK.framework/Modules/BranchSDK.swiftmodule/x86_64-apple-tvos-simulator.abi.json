@@ -1,0 +1,517 @@
+{
+  "ABIRoot": {
+    "kind": "Root",
+    "name": "BranchSDK",
+    "printedName": "BranchSDK",
+    "children": [
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "BranchSDK",
+        "declAttributes": [
+          "RawDocComment"
+        ]
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "ConfigurationController",
+        "printedName": "ConfigurationController",
+        "children": [
+          {
+            "kind": "Var",
+            "name": "branchKeySource",
+            "printedName": "branchKeySource",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Swift.String?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(py)branchKeySource",
+            "mangledName": "$s9BranchSDK23ConfigurationControllerC15branchKeySourceSSSgvp",
+            "moduleName": "BranchSDK",
+            "declAttributes": [
+              "HasInitialValue",
+              "HasStorage",
+              "AccessControl",
+              "RawDocComment",
+              "ObjC"
+            ],
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Swift.String?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "String",
+                        "printedName": "Swift.String",
+                        "usr": "s:SS"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(im)branchKeySource",
+                "mangledName": "$s9BranchSDK23ConfigurationControllerC15branchKeySourceSSSgvg",
+                "moduleName": "BranchSDK",
+                "implicit": true,
+                "declAttributes": [
+                  "ObjC"
+                ],
+                "accessorKind": "get"
+              },
+              {
+                "kind": "Accessor",
+                "name": "Set",
+                "printedName": "Set()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Swift.String?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "String",
+                        "printedName": "Swift.String",
+                        "usr": "s:SS"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(im)setBranchKeySource:",
+                "mangledName": "$s9BranchSDK23ConfigurationControllerC15branchKeySourceSSSgvs",
+                "moduleName": "BranchSDK",
+                "implicit": true,
+                "declAttributes": [
+                  "ObjC"
+                ],
+                "accessorKind": "set"
+              },
+              {
+                "kind": "Accessor",
+                "name": "Modify",
+                "printedName": "Modify()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:9BranchSDK23ConfigurationControllerC15branchKeySourceSSSgvM",
+                "mangledName": "$s9BranchSDK23ConfigurationControllerC15branchKeySourceSSSgvM",
+                "moduleName": "BranchSDK",
+                "implicit": true,
+                "accessorKind": "_modify"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "deferInitForPluginRuntime",
+            "printedName": "deferInitForPluginRuntime",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Bool",
+                "printedName": "Swift.Bool",
+                "usr": "s:Sb"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(py)deferInitForPluginRuntime",
+            "mangledName": "$s9BranchSDK23ConfigurationControllerC25deferInitForPluginRuntimeSbvp",
+            "moduleName": "BranchSDK",
+            "declAttributes": [
+              "HasInitialValue",
+              "HasStorage",
+              "AccessControl",
+              "ObjC"
+            ],
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Bool",
+                    "printedName": "Swift.Bool",
+                    "usr": "s:Sb"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(im)deferInitForPluginRuntime",
+                "mangledName": "$s9BranchSDK23ConfigurationControllerC25deferInitForPluginRuntimeSbvg",
+                "moduleName": "BranchSDK",
+                "implicit": true,
+                "declAttributes": [
+                  "ObjC"
+                ],
+                "accessorKind": "get"
+              },
+              {
+                "kind": "Accessor",
+                "name": "Set",
+                "printedName": "Set()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Bool",
+                    "printedName": "Swift.Bool",
+                    "usr": "s:Sb"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(im)setDeferInitForPluginRuntime:",
+                "mangledName": "$s9BranchSDK23ConfigurationControllerC25deferInitForPluginRuntimeSbvs",
+                "moduleName": "BranchSDK",
+                "implicit": true,
+                "declAttributes": [
+                  "ObjC"
+                ],
+                "accessorKind": "set"
+              },
+              {
+                "kind": "Accessor",
+                "name": "Modify",
+                "printedName": "Modify()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:9BranchSDK23ConfigurationControllerC25deferInitForPluginRuntimeSbvM",
+                "mangledName": "$s9BranchSDK23ConfigurationControllerC25deferInitForPluginRuntimeSbvM",
+                "moduleName": "BranchSDK",
+                "implicit": true,
+                "accessorKind": "_modify"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "checkPasteboardOnInstall",
+            "printedName": "checkPasteboardOnInstall",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Bool",
+                "printedName": "Swift.Bool",
+                "usr": "s:Sb"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(py)checkPasteboardOnInstall",
+            "mangledName": "$s9BranchSDK23ConfigurationControllerC24checkPasteboardOnInstallSbvp",
+            "moduleName": "BranchSDK",
+            "declAttributes": [
+              "HasInitialValue",
+              "HasStorage",
+              "AccessControl",
+              "ObjC"
+            ],
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Bool",
+                    "printedName": "Swift.Bool",
+                    "usr": "s:Sb"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(im)checkPasteboardOnInstall",
+                "mangledName": "$s9BranchSDK23ConfigurationControllerC24checkPasteboardOnInstallSbvg",
+                "moduleName": "BranchSDK",
+                "implicit": true,
+                "declAttributes": [
+                  "ObjC"
+                ],
+                "accessorKind": "get"
+              },
+              {
+                "kind": "Accessor",
+                "name": "Set",
+                "printedName": "Set()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Bool",
+                    "printedName": "Swift.Bool",
+                    "usr": "s:Sb"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(im)setCheckPasteboardOnInstall:",
+                "mangledName": "$s9BranchSDK23ConfigurationControllerC24checkPasteboardOnInstallSbvs",
+                "moduleName": "BranchSDK",
+                "implicit": true,
+                "declAttributes": [
+                  "ObjC"
+                ],
+                "accessorKind": "set"
+              },
+              {
+                "kind": "Accessor",
+                "name": "Modify",
+                "printedName": "Modify()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Void",
+                    "printedName": "()"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:9BranchSDK23ConfigurationControllerC24checkPasteboardOnInstallSbvM",
+                "mangledName": "$s9BranchSDK23ConfigurationControllerC24checkPasteboardOnInstallSbvM",
+                "moduleName": "BranchSDK",
+                "implicit": true,
+                "accessorKind": "_modify"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "shared",
+            "printedName": "shared",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "ConfigurationController",
+                "printedName": "BranchSDK.ConfigurationController",
+                "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(cpy)shared",
+            "mangledName": "$s9BranchSDK23ConfigurationControllerC6sharedACvpZ",
+            "moduleName": "BranchSDK",
+            "static": true,
+            "declAttributes": [
+              "HasInitialValue",
+              "Final",
+              "HasStorage",
+              "AccessControl",
+              "Custom",
+              "RawDocComment",
+              "ObjC"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "ConfigurationController",
+                    "printedName": "BranchSDK.ConfigurationController",
+                    "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(cm)shared",
+                "mangledName": "$s9BranchSDK23ConfigurationControllerC6sharedACvgZ",
+                "moduleName": "BranchSDK",
+                "static": true,
+                "implicit": true,
+                "declAttributes": [
+                  "Final",
+                  "ObjC"
+                ],
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Function",
+            "name": "getConfiguration",
+            "printedName": "getConfiguration()",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Dictionary",
+                "printedName": "[Swift.String : Any]",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "ProtocolComposition",
+                    "printedName": "Any"
+                  }
+                ],
+                "usr": "s:SD"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController(im)getConfiguration",
+            "mangledName": "$s9BranchSDK23ConfigurationControllerC03getC0SDySSypGyF",
+            "moduleName": "BranchSDK",
+            "declAttributes": [
+              "AccessControl",
+              "ObjC"
+            ],
+            "funcSelfKind": "NonMutating"
+          }
+        ],
+        "declKind": "Class",
+        "usr": "c:@M@BranchSDK@objc(cs)ConfigurationController",
+        "mangledName": "$s9BranchSDK23ConfigurationControllerC",
+        "moduleName": "BranchSDK",
+        "declAttributes": [
+          "AccessControl",
+          "ObjCMembers",
+          "ObjC"
+        ],
+        "superclassUsr": "c:objc(cs)NSObject",
+        "hasMissingDesignatedInitializers": true,
+        "inheritsConvenienceInitializers": true,
+        "superclassNames": [
+          "ObjectiveC.NSObject"
+        ],
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "Copyable",
+            "printedName": "Copyable",
+            "usr": "s:s8CopyableP",
+            "mangledName": "$ss8CopyableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Escapable",
+            "printedName": "Escapable",
+            "usr": "s:s9EscapableP",
+            "mangledName": "$ss9EscapableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Equatable",
+            "printedName": "Equatable",
+            "usr": "s:SQ",
+            "mangledName": "$sSQ"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Hashable",
+            "printedName": "Hashable",
+            "usr": "s:SH",
+            "mangledName": "$sSH"
+          },
+          {
+            "kind": "Conformance",
+            "name": "CVarArg",
+            "printedName": "CVarArg",
+            "usr": "s:s7CVarArgP",
+            "mangledName": "$ss7CVarArgP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "_KeyValueCodingAndObservingPublishing",
+            "printedName": "_KeyValueCodingAndObservingPublishing",
+            "usr": "s:10Foundation37_KeyValueCodingAndObservingPublishingP",
+            "mangledName": "$s10Foundation37_KeyValueCodingAndObservingPublishingP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "_KeyValueCodingAndObserving",
+            "printedName": "_KeyValueCodingAndObserving",
+            "usr": "s:10Foundation27_KeyValueCodingAndObservingP",
+            "mangledName": "$s10Foundation27_KeyValueCodingAndObservingP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "CustomStringConvertible",
+            "printedName": "CustomStringConvertible",
+            "usr": "s:s23CustomStringConvertibleP",
+            "mangledName": "$ss23CustomStringConvertibleP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "CustomDebugStringConvertible",
+            "printedName": "CustomDebugStringConvertible",
+            "usr": "s:s28CustomDebugStringConvertibleP",
+            "mangledName": "$ss28CustomDebugStringConvertibleP"
+          }
+        ]
+      }
+    ],
+    "json_format_version": 8
+  },
+  "ConstValues": [
+    {
+      "filePath": "\/Users\/nidhi.dixit\/Documents\/GitHub\/ios-branch-deep-linking-attribution\/Sources\/BranchSDK_Swift\/ConfigurationController.swift",
+      "kind": "BooleanLiteral",
+      "offset": 295,
+      "length": 5,
+      "value": "false"
+    },
+    {
+      "filePath": "\/Users\/nidhi.dixit\/Documents\/GitHub\/ios-branch-deep-linking-attribution\/Sources\/BranchSDK_Swift\/ConfigurationController.swift",
+      "kind": "BooleanLiteral",
+      "offset": 349,
+      "length": 5,
+      "value": "false"
+    }
+  ]
+}

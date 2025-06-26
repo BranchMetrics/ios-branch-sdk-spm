@@ -1,0 +1,11 @@
+framework module BranchSDK {
+  umbrella header "BranchSDK.h"
+  export *
+
+  module * { export * }
+}
+
+module BranchSDK.Swift {
+  header "BranchSDK-Swift.h"
+  requires objc
+}

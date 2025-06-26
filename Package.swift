@@ -17,8 +17,7 @@ let package = Package(
         targets: [
             .binaryTarget(
                 name: "BranchSDKBinary",
-                url: "https://github.com/NidhiDixit09/nidhidixit09.github.io/raw/refs/heads/main/Branch.zip",
-                checksum: "0a64c78eee4a342b3f4b5bf7bc5cc1fa1e67054398cf5edab0331fc79698313f"
+                url: "BranchSDK.xcframework"
             )
             
         ]
