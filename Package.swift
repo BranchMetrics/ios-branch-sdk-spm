@@ -17,7 +17,7 @@ let package = Package(
         targets: [
             .binaryTarget(
                 name: "BranchSDKBinary",
-                url: "BranchSDK.xcframework"
+                path: "BranchSDK.xcframework"
             )
             
         ]
