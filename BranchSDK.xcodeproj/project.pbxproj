@@ -54,6 +54,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		4D597D862E2ADDAD00D8950A /* BranchConfigurationController.h in Sources */ = {isa = PBXBuildFile; fileRef = 4DE60F312E2AD934004FC0E0 /* BranchConfigurationController.h */; };
+		4D597D872E2ADE8300D8950A /* BranchConstants.h in Sources */ = {isa = PBXBuildFile; fileRef = 5FCDD3DC2B7AC6A100EAF29F /* BranchConstants.h */; };
 		4DE60F322E2AD934004FC0E0 /* BranchConfigurationController.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DE60F312E2AD934004FC0E0 /* BranchConfigurationController.h */; };
 		4DE60F332E2AD934004FC0E0 /* BranchConfigurationController.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DE60F312E2AD934004FC0E0 /* BranchConfigurationController.h */; };
 		4DE60F342E2AD934004FC0E0 /* BranchConfigurationController.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DE60F312E2AD934004FC0E0 /* BranchConfigurationController.h */; };
@@ -1597,6 +1599,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D597D872E2ADE8300D8950A /* BranchConstants.h in Sources */,
+				4D597D862E2ADDAD00D8950A /* BranchConfigurationController.h in Sources */,
 				5FCDD5AC2B7AC6A400EAF29F /* BNCCallbackMap.m in Sources */,
 				5FCDD40E2B7AC6A100EAF29F /* BNCApplication.m in Sources */,
 				5FCDD5642B7AC6A300EAF29F /* BranchDelegate.m in Sources */,
