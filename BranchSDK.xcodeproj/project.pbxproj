@@ -54,6 +54,15 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		4D4445A42E2F7138004E065F /* BranchConfigurationController.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D4445A32E2F7138004E065F /* BranchConfigurationController.h */; };
+		4D4445A52E2F7138004E065F /* BranchConfigurationController.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D4445A32E2F7138004E065F /* BranchConfigurationController.h */; };
+		4D4445A62E2F7138004E065F /* BranchConfigurationController.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D4445A32E2F7138004E065F /* BranchConfigurationController.h */; };
+		4D4445A82E2F71D0004E065F /* BranchConfigurationController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4D4445A72E2F71D0004E065F /* BranchConfigurationController.m */; };
+		4D4445A92E2F71D0004E065F /* BranchConfigurationController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4D4445A72E2F71D0004E065F /* BranchConfigurationController.m */; };
+		4D4445AA2E2F71D0004E065F /* BranchConfigurationController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4D4445A72E2F71D0004E065F /* BranchConfigurationController.m */; };
+		4D4445AB2E2F71D0004E065F /* BranchConfigurationController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4D4445A72E2F71D0004E065F /* BranchConfigurationController.m */; };
+		4D4445AC2E2F71D0004E065F /* BranchConfigurationController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4D4445A72E2F71D0004E065F /* BranchConfigurationController.m */; };
+		4D4445AD2E2F71D0004E065F /* BranchConfigurationController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4D4445A72E2F71D0004E065F /* BranchConfigurationController.m */; };
 		5F2211722894A9C000C5B190 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2211712894A9C000C5B190 /* AppDelegate.swift */; };
 		5F2211742894A9C000C5B190 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2211732894A9C000C5B190 /* SceneDelegate.swift */; };
 		5F2211762894A9C000C5B190 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2211752894A9C000C5B190 /* ViewController.swift */; };
@@ -545,6 +554,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4D4445A32E2F7138004E065F /* BranchConfigurationController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BranchConfigurationController.h; sourceTree = "<group>"; };
+		4D4445A72E2F71D0004E065F /* BranchConfigurationController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BranchConfigurationController.m; sourceTree = "<group>"; };
+		4D4445AE2E2F71D3004E065F /* TestHostTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "TestHostTests-Bridging-Header.h"; sourceTree = "<group>"; };
+		4D4445AF2E2F71D3004E065F /* TestHostUITests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "TestHostUITests-Bridging-Header.h"; sourceTree = "<group>"; };
 		5F22101D2894A0DB00C5B190 /* BranchSDK.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = BranchSDK.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F22116F2894A9C000C5B190 /* TestHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TestHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F2211712894A9C000C5B190 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -884,6 +897,7 @@
 				5FCDD3942B7AC6A100EAF29F /* BranchCSSearchableItemAttributeSet.m */,
 				5FCDD3E52B7AC6A100EAF29F /* BranchDelegate.m */,
 				5FCDD3F82B7AC6A100EAF29F /* BranchEvent.m */,
+				4D4445A72E2F71D0004E065F /* BranchConfigurationController.m */,
 				5FCDD37A2B7AC6A100EAF29F /* BranchInstallRequest.m */,
 				5FCDD3912B7AC6A100EAF29F /* BranchJsonConfig.m */,
 				5FCDD3EA2B7AC6A100EAF29F /* BranchLastAttributedTouchData.m */,
@@ -906,6 +920,8 @@
 				5FCDD3F52B7AC6A100EAF29F /* UIViewController+Branch.m */,
 				5FCDD3B42B7AC6A100EAF29F /* Private */,
 				5FCDD3982B7AC6A100EAF29F /* Public */,
+				4D4445AE2E2F71D3004E065F /* TestHostTests-Bridging-Header.h */,
+				4D4445AF2E2F71D3004E065F /* TestHostUITests-Bridging-Header.h */,
 			);
 			name = BranchSDK;
 			path = Sources/BranchSDK;
@@ -980,6 +996,7 @@
 				5FCDD3CA2B7AC6A100EAF29F /* BNCUserAgentCollector.h */,
 				E7F311B02DACB54100F824A7 /* BNCODMInfoCollector.h */,
 				5FCDD3D32B7AC6A100EAF29F /* Branch+Validator.h */,
+				4D4445A32E2F7138004E065F /* BranchConfigurationController.h */,
 				5FCDD3DC2B7AC6A100EAF29F /* BranchConstants.h */,
 				5FCDD3D82B7AC6A100EAF29F /* BranchContentDiscoverer.h */,
 				5FCDD3DA2B7AC6A100EAF29F /* BranchContentDiscoveryManifest.h */,
@@ -1103,6 +1120,7 @@
 				5FCDD54F2B7AC6A300EAF29F /* BranchJsonConfig.h in Headers */,
 				5FCDD4E02B7AC6A200EAF29F /* BNCSKAdNetwork.h in Headers */,
 				5FCDD5102B7AC6A300EAF29F /* BNCDeviceSystem.h in Headers */,
+				4D4445A62E2F7138004E065F /* BranchConfigurationController.h in Headers */,
 				5FCDD51F2B7AC6A300EAF29F /* BNCNetworkInterface.h in Headers */,
 				5FA71BA82B7AE6B2008009CA /* Branch.h in Headers */,
 			);
@@ -1186,6 +1204,7 @@
 				5FCDD4D82B7AC6A200EAF29F /* BNCAppleReceipt.h in Headers */,
 				5FCDD5502B7AC6A300EAF29F /* BranchJsonConfig.h in Headers */,
 				5FCDD4E12B7AC6A200EAF29F /* BNCSKAdNetwork.h in Headers */,
+				4D4445A42E2F7138004E065F /* BranchConfigurationController.h in Headers */,
 				5FCDD5112B7AC6A300EAF29F /* BNCDeviceSystem.h in Headers */,
 				5FCDD5202B7AC6A300EAF29F /* BNCNetworkInterface.h in Headers */,
 			);
@@ -1269,6 +1288,7 @@
 				5FCDD4D92B7AC6A200EAF29F /* BNCAppleReceipt.h in Headers */,
 				5FCDD5512B7AC6A300EAF29F /* BranchJsonConfig.h in Headers */,
 				5FCDD4E22B7AC6A200EAF29F /* BNCSKAdNetwork.h in Headers */,
+				4D4445A52E2F7138004E065F /* BranchConfigurationController.h in Headers */,
 				5FCDD5122B7AC6A300EAF29F /* BNCDeviceSystem.h in Headers */,
 				5FCDD5212B7AC6A300EAF29F /* BNCNetworkInterface.h in Headers */,
 			);
@@ -1408,10 +1428,12 @@
 					};
 					5F2211832894A9C100C5B190 = {
 						CreatedOnToolsVersion = 13.4.1;
+						LastSwiftMigration = 1620;
 						TestTargetID = 5F22116E2894A9C000C5B190;
 					};
 					5F22118D2894A9C100C5B190 = {
 						CreatedOnToolsVersion = 13.4.1;
+						LastSwiftMigration = 1620;
 						TestTargetID = 5F22116E2894A9C000C5B190;
 					};
 					5F73EBF328ECE65400608601 = {
@@ -1627,6 +1649,7 @@
 				5FCDD42C2B7AC6A100EAF29F /* BranchPluginSupport.m in Sources */,
 				5FCDD5A62B7AC6A400EAF29F /* BNCQRCodeCache.m in Sources */,
 				5FCDD45C2B7AC6A100EAF29F /* BNCReachability.m in Sources */,
+				4D4445A82E2F71D0004E065F /* BranchConfigurationController.m in Sources */,
 				5FCDD42F2B7AC6A100EAF29F /* NSString+Branch.m in Sources */,
 				5FCDD5A02B7AC6A400EAF29F /* BranchShortUrlRequest.m in Sources */,
 				5FCDD46B2B7AC6A100EAF29F /* BNCServerInterface.m in Sources */,
@@ -1672,6 +1695,7 @@
 				5F6DD24C2894AF5E00AE9FB0 /* NSURLSession+Branch.m in Sources */,
 				5F2211722894A9C000C5B190 /* AppDelegate.swift in Sources */,
 				5F2211742894A9C000C5B190 /* SceneDelegate.swift in Sources */,
+				4D4445AA2E2F71D0004E065F /* BranchConfigurationController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1679,6 +1703,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D4445AB2E2F71D0004E065F /* BranchConfigurationController.m in Sources */,
 				5F2211892894A9C100C5B190 /* TestHostTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1687,6 +1712,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D4445AD2E2F71D0004E065F /* BranchConfigurationController.m in Sources */,
 				5F2211952894A9C100C5B190 /* TestHostUITestsLaunchTests.swift in Sources */,
 				5F2211932894A9C100C5B190 /* TestHostUITests.swift in Sources */,
 			);
@@ -1734,6 +1760,7 @@
 				5FCDD42D2B7AC6A100EAF29F /* BranchPluginSupport.m in Sources */,
 				5FCDD5A72B7AC6A400EAF29F /* BNCQRCodeCache.m in Sources */,
 				5FCDD45D2B7AC6A100EAF29F /* BNCReachability.m in Sources */,
+				4D4445A92E2F71D0004E065F /* BranchConfigurationController.m in Sources */,
 				5FCDD4302B7AC6A100EAF29F /* NSString+Branch.m in Sources */,
 				5FCDD5A12B7AC6A400EAF29F /* BranchShortUrlRequest.m in Sources */,
 				5FCDD46C2B7AC6A100EAF29F /* BNCServerInterface.m in Sources */,
@@ -1829,6 +1856,7 @@
 				5FCDD44C2B7AC6A100EAF29F /* BranchContentDiscoveryManifest.m in Sources */,
 				5FCDD46A2B7AC6A100EAF29F /* BNCCrashlyticsWrapper.m in Sources */,
 				5FCDD43D2B7AC6A100EAF29F /* BNCServerRequest.m in Sources */,
+				4D4445AC2E2F71D0004E065F /* BranchConfigurationController.m in Sources */,
 				5FCDD5842B7AC6A400EAF29F /* BranchLinkProperties.m in Sources */,
 				5FCDD59F2B7AC6A400EAF29F /* BranchEvent.m in Sources */,
 				5FCDD5812B7AC6A400EAF29F /* BNCAppleReceipt.m in Sources */,
@@ -2157,6 +2185,7 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = R63EM248DP;
@@ -2167,6 +2196,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/BranchSDK/TestHostTests-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -2179,6 +2209,7 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = R63EM248DP;
@@ -2189,6 +2220,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/BranchSDK/TestHostTests-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -2200,6 +2232,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = R63EM248DP;
@@ -2209,6 +2242,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/BranchSDK/TestHostUITests-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -2220,6 +2254,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = R63EM248DP;
@@ -2229,6 +2264,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/BranchSDK/TestHostUITests-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
