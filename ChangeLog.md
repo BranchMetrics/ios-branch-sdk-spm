@@ -1,5 +1,15 @@
 Branch iOS SDK Change Log
 
+v.3.13.0
+- Added API 'setAnonID' to set custom Meta Anon ID for the current user.
+- Added API 'setSDKWaitTimeForThirdPartyAPIs' to set time for which SDK will wait for fetching data from third-party APIs, such as ODM info and Apple Attribution Token.
+- Removed apple_receipt and apple_testflight params from the Server Requests.
+
+v.3.12.2
+- Fixed bug where error object was not being forwarded when receiving error from service.
+- Fixed bug with Advanced Compliance and Integration Validator.
+- Added param 'operational_metrics' in v1/install request.
+
 v.3.12.1
 - Fixed bug - SDK crashes when Meta AEM query param `al_applink_data` is empty.
 

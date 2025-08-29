@@ -261,7 +261,7 @@
                 serverResponse =
                     [self processServerResponse:operation.response
                         data:operation.responseData error:operation.error];
-                [self collectInstrumentationMetricsWithOperation:operation];
+                [self collectInstrumentationMetricsWithOperation:operation];                    
                 dispatch_semaphore_signal(semaphore);
             }];
     [operation start];

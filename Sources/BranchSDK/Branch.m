@@ -244,7 +244,6 @@ typedef NS_ENUM(NSInteger, BNCInitStatus) {
     // queue up async data loading
     [self loadApplicationData];
     [self loadUserAgent];
-    [self startLoadingOfODMInfo];
     
     BranchJsonConfig *config = BranchJsonConfig.instance;
     self.deferInitForPluginRuntime = config.deferInitForPluginRuntime;
@@ -539,6 +538,19 @@ static NSString *bnc_branchKey = nil;
     self.preferenceHelper.retryInterval = retryInterval;
 }
 
++ (void)setSDKWaitTimeForThirdPartyAPIs:(NSTimeInterval)waitTime {
+    @synchronized(self) {
+        if (waitTime <= 0) {
+            [[BranchLogger shared] logWarning:@"Invalid waitTime value. It must be greater than 0. Using default value." error:nil];
+            return;
+        }
+        if (waitTime > 10) {
+            [[BranchLogger shared] logWarning:@"Invalid waitTime value. It must not exceed 10 seconds. Using default value." error:nil];
+            return;
+        }
+        [BNCPreferenceHelper sharedInstance].thirdPartyAPIsWaitTime = waitTime;
+    }
+}
 
 - (void)setRequestMetadataKey:(NSString *)key value:(NSString *)value {
     [self.preferenceHelper setRequestMetadataKey:key value:value];
@@ -597,12 +609,21 @@ static NSString *bnc_branchKey = nil;
     @synchronized (self) {
         [[BNCPreferenceHelper sharedInstance] setOdmInfo:odmInfo];
         [BNCPreferenceHelper sharedInstance].odmInfoInitDate = firstOpenTimestamp;
-        [[BNCODMInfoCollector instance] loadODMInfo];
     }
 #else
     [[BranchLogger shared] logWarning:@"setODMInfo not supported on tvOS." error:nil];
 #endif
     
+}
+
++ (void)setAnonID:(NSString *)anonID {
+    @synchronized (self) {
+        if (anonID && [anonID isKindOfClass:[NSString class]]) {
+            [BNCPreferenceHelper sharedInstance].anonID = anonID;
+        } else {
+            [[BranchLogger shared] logWarning:@"Invalid anonID provided. Must be a non-nil NSString." error:nil];
+        }
+    }
 }
 
 - (void)setConsumerProtectionAttributionLevel:(BranchAttributionLevel)level {
@@ -992,15 +1013,6 @@ static NSString *bnc_branchKey = nil;
         }];
         dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
     });
-}
-
-- (void)startLoadingOfODMInfo {
-    #if !TARGET_OS_TV
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        [[BranchLogger shared] logVerbose:@"Loading ODM info ..." error:nil];
-        [[BNCODMInfoCollector instance] loadODMInfo];
-    });
-   #endif
 }
 
 
@@ -1993,7 +2005,7 @@ static inline void BNCPerformBlockOnMainThreadSync(dispatch_block_t block) {
             if (!Branch.trackingDisabled) {
                 if (![req isKindOfClass:[BranchInstallRequest class]] && !self.preferenceHelper.randomizedBundleToken) {
                     [[BranchLogger shared] logError:@"User session has not been initialized!" error:nil];
-                    self.networkCount = 0;
+                    self.networkCount = 0;                    
                     BNCPerformBlockOnMainThreadSync(^{
                         [req processResponse:nil error:[NSError branchErrorWithCode:BNCInitError]];
                     });
