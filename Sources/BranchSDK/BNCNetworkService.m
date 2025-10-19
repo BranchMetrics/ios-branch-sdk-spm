@@ -86,16 +86,33 @@
     return self;
 }
 
+// Avoid locking in dealloc; just tear down with ivars
 - (void)dealloc {
+    NSURLSession *session = _session;
+    if (session) {
+        [session invalidateAndCancel];
+        _session = nil;
+    }
+    NSOperationQueue *queue = _sessionQueue;
+    if (queue) {
+        [queue cancelAllOperations];
+        _sessionQueue = nil;
+    }
+}
+
+// IMPORTANT: do not touch properties here; use ivars so you don’t create a session while tearing down
+- (void)cancelAllOperations {
     @synchronized (self) {
-        if (_session) {
-            [_session invalidateAndCancel];
+        NSURLSession *session = _session;
+        if (session) {
+            [session invalidateAndCancel];
             _session = nil;
         }
-    }
-    if (_sessionQueue) {
-        [_sessionQueue cancelAllOperations];
-        _sessionQueue = nil;
+        NSOperationQueue *queue = _sessionQueue;
+        if (queue) {
+            [queue cancelAllOperations];
+            _sessionQueue = nil;
+        }
     }
 }
 
@@ -215,13 +232,6 @@
     }];
     
     [operation.sessionTask resume];
-}
-
-- (void) cancelAllOperations {
-    @synchronized (self) {
-        [self.session invalidateAndCancel];
-        _session = nil;
-    }
 }
 
 @end
