@@ -86,6 +86,36 @@
     return self;
 }
 
+// Avoid locking in dealloc; just tear down with ivars
+- (void)dealloc {
+    NSURLSession *session = _session;
+    if (session) {
+        [session invalidateAndCancel];
+        _session = nil;
+    }
+    NSOperationQueue *queue = _sessionQueue;
+    if (queue) {
+        [queue cancelAllOperations];
+        _sessionQueue = nil;
+    }
+}
+
+// IMPORTANT: do not touch properties here; use ivars so you don’t create a session while tearing down
+- (void)cancelAllOperations {
+    @synchronized (self) {
+        NSURLSession *session = _session;
+        if (session) {
+            [session invalidateAndCancel];
+            _session = nil;
+        }
+        NSOperationQueue *queue = _sessionQueue;
+        if (queue) {
+            [queue cancelAllOperations];
+            _sessionQueue = nil;
+        }
+    }
+}
+
 #pragma mark - Getters & Setters
 
 - (void) setDefaultTimeoutInterval:(NSTimeInterval)defaultTimeoutInterval {
@@ -183,25 +213,25 @@
     } else {
         [[BranchLogger shared] logError:[NSString stringWithFormat:@"Expected NSMutableURLRequest, got %@", [operation.request class]] error:nil];
     }
-    
-    operation.sessionTask = [self.session dataTaskWithRequest:operation.request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+
+    operation.sessionTask = [self.session dataTaskWithRequest:operation.request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         operation.responseData = data;
-        operation.response = (NSHTTPURLResponse*) response;
+        operation.response = (NSHTTPURLResponse*)response;
         operation.error = error;
-        
-        if (operation.completionBlock) {
-            operation.completionBlock(operation);
+
+        // Capture, clear, then invoke to avoid unexpected long-lived captures
+        void (^completion)(BNCNetworkOperation *) = operation.completionBlock;
+        operation.completionBlock = nil;
+
+        if (completion) {
+            completion(operation);
         }
+
+        // Break back-reference to the service
+        operation.networkService = nil;
     }];
     
     [operation.sessionTask resume];
-}
-
-- (void) cancelAllOperations {
-    @synchronized (self) {
-        [self.session invalidateAndCancel];
-        _session = nil;
-    }
 }
 
 @end
