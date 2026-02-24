@@ -438,6 +438,10 @@ extern NSString * __nonnull const BNCSpotlightFeature;
 - (void)initSceneSessionWithLaunchOptions:(NSDictionary *)options isReferrable:(BOOL)isReferrable explicitlyRequestedReferrable:(BOOL)explicitlyRequestedReferrable automaticallyDisplayController:(BOOL)automaticallyDisplayController
                   registerDeepLinkHandler:(void (^)(BNCInitSessionResponse * _Nullable initResponse, NSError * _Nullable error))callback;
 
+
+- (void)initSceneSessionWithLaunchOptions:(NSDictionary *)options sceneIdentifier:(NSString *)sceneIdentifier isReferrable:(BOOL)isReferrable explicitlyRequestedReferrable:(BOOL)explicitlyRequestedReferrable automaticallyDisplayController:(BOOL)automaticallyDisplayController
+                  registerDeepLinkHandler:(void (^)(BNCInitSessionResponse * _Nullable initResponse, NSError * _Nullable error))callback;
+
 /**
  Initialize the Branch session.
  
@@ -940,6 +944,15 @@ extern BranchAttributionLevel const BranchAttributionLevelNone;
              Adjusting the consumer protection attribution level can help you comply with privacy regulations and meet your data collection needs.
  */
 - (void)setConsumerProtectionAttributionLevel:(BranchAttributionLevel)level;
+
+/**
+ Sets the consumer protection attribution level with an option to reset the session.
+
+ @param level The desired consumer protection attribution level, represented by the BranchAttributionLevel enum (Full, Reduced, Minimal, None).
+ @param resetSession If YES, a new session will be initialized when transitioning from BranchAttributionLevelNone to other higher levels.
+                     If NO, the session will not be re-initialized automatically when transitioning from BranchAttributionLevelNone to other higher levels.
+ */
+- (void)setConsumerProtectionAttributionLevel:(BranchAttributionLevel)level resetSession:(BOOL)resetSession;
 
 
 #pragma mark - Session Item methods

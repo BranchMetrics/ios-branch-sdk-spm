@@ -31,10 +31,11 @@
 #import "BNCPreferenceHelper.h"
 #import "BNCAppGroupsData.h"
 #import "BNCSKAdNetwork.h"
+
+#import "BranchConfigurationController.h"
 #import "BNCReferringURLUtility.h"
 #import "BNCPasteboard.h"
 #import "BNCODMInfoCollector.h"
-#import "BranchConfigurationController.h"
 
 @interface BNCRequestFactory()
 
