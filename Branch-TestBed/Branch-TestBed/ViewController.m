@@ -18,7 +18,9 @@
 #import "BranchLinkProperties.h"
 #import "LogOutputViewController.h"
 #import "AppDelegate.h"
+#import "TestBedIdentifiers.h"
 #import <LinkPresentation/LinkPresentation.h>
+#import <UserNotifications/UserNotifications.h>
 #import <StoreKit/StoreKit.h>
 
 extern AppDelegate* appDelegate;
@@ -149,6 +151,24 @@ bool hasSetPartnerParams = false;
             [self.setParnerParamsButton setImage:[UIImage systemImageNamed:@"folder.badge.plus"] forState:UIControlStateNormal];
         }
     }
+
+    UIView *footerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, 120)];
+    
+    UIButton *notificationButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    notificationButton.frame = CGRectMake(20, 10, footerView.frame.size.width - 40, 44);
+    [notificationButton setTitle:@"Send Notification" forState:UIControlStateNormal];
+    [notificationButton addTarget:self action:@selector(sendNotification:) forControlEvents:UIControlEventTouchUpInside];
+    notificationButton.accessibilityIdentifier = kTestBedBtnNotificationSend;
+    [footerView addSubview:notificationButton];
+    
+    UIButton *pluginButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    pluginButton.frame = CGRectMake(20, 64, footerView.frame.size.width - 40, 44);
+    [pluginButton setTitle:@"Simulate Plugin Notify Init" forState:UIControlStateNormal];
+    [pluginButton addTarget:self action:@selector(pluginNotifyInit:) forControlEvents:UIControlEventTouchUpInside];
+    pluginButton.accessibilityIdentifier = kTestBedBtnPluginNotifyInit;
+    [footerView addSubview:pluginButton];
+    
+    self.tableView.tableFooterView = footerView;
 }
 
 - (IBAction)goToPasteControlPressed:(id)sender {
@@ -908,6 +928,36 @@ static inline void BNCPerformBlockOnMainThread(void (^ block)(void)) {
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
     return 50;
+}
+
+- (IBAction)sendNotification:(id)sender {
+    [self.branchUniversalObject getShortUrlWithLinkProperties:[BranchLinkProperties new] andCallback:^(NSString * _Nullable url, NSError * _Nullable error) {
+        if (url) {
+            [self scheduleNotificationWithURL:url];
+        }
+    }];
+}
+
+- (void)scheduleNotificationWithURL:(NSString *)url {
+    UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+    [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound) completionHandler:^(BOOL granted, NSError * _Nullable error) {
+        if (granted) {
+            UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+            content.title = @"Branch Test Notification";
+            content.body = [NSString stringWithFormat:@"Tap to test deep link: %@", url];
+            content.userInfo = @{@"branch": url};
+            
+            UNTimeIntervalNotificationTrigger *trigger = [UNTimeIntervalNotificationTrigger triggerWithTimeInterval:5 repeats:NO];
+            UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:@"BranchTestNotification" content:content trigger:trigger];
+            
+            [center addNotificationRequest:request withCompletionHandler:nil];
+        }
+    }];
+}
+
+- (IBAction)pluginNotifyInit:(id)sender {
+    [[Branch getInstance] notifyNativeToInit];
+    [self showAlert:@"notifyNativeToInit called" withDescription:@"The SDK should now complete initialization."];
 }
 
 @end

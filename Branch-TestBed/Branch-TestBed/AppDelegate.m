@@ -13,6 +13,10 @@
 #import "Branch.h"
 #import "BNCEncodingUtils.h"
 #import "BranchEvent.h"
+#import <UserNotifications/UserNotifications.h>
+
+@interface AppDelegate() <UNUserNotificationCenterDelegate>
+@end
 
 AppDelegate* appDelegate = nil;
 void APPLogHookFunction(NSDate*_Nonnull timestamp, BranchLogLevel level, NSString*_Nullable message);
@@ -25,6 +29,7 @@ didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     [self setBranchLogFile];
 
     appDelegate = self;
+    [UNUserNotificationCenter currentNotificationCenter].delegate = self;
 
     /*
        Set Branch.useTestBranchKey = YES; to have Branch use the test key that's in the app's
@@ -51,13 +56,21 @@ didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
         
         if (request) {
             NSString *jsonString = [[NSString alloc] initWithData:request.HTTPBody encoding:NSUTF8StringEncoding];
-            NSLog(@"[BranchLog] Got %@ Request: %@", request.URL , jsonString);
+            NSString *requestLine = [NSString stringWithFormat:@"[BranchLog] Got %@ Request: %@", request.URL, jsonString];
+            NSLog(@"%@", requestLine);
+            // L1 wire validation: mirror the request line to branchlogs.txt so
+            // CI can parse it via scripts/validate_l1_logs.py. The newline
+            // terminator keeps each request on its own line for the regex
+            // parser, even when several requests fire back-to-back.
+            [appDelegate processLogMessage:[requestLine stringByAppendingString:@"\n"]];
         }
-        
+
         if (response) {
-            NSLog(@"[BranchLog] Got Response for request (%@): %@", response.requestId, response.data);
+            NSString *responseLine = [NSString stringWithFormat:@"[BranchLog] Got Response for request (%@): %@", response.requestId, response.data];
+            NSLog(@"%@", responseLine);
+            [appDelegate processLogMessage:[responseLine stringByAppendingString:@"\n"]];
         }
-        
+
         NSString *logEntry = error ? [NSString stringWithFormat:@"Level: %lu, Message: %@, Error: %@", (unsigned long)logLevel, message, error.localizedDescription]
                                    : [NSString stringWithFormat:@"Level: %lu, Message: %@", (unsigned long)logLevel, message];
         APPLogHookFunction([NSDate date], logLevel, logEntry);
@@ -94,9 +107,50 @@ didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     NSLog(@"Logging Early Event: %@", earlyEvent);
     [earlyEvent logEvent];
 
-    
+
     // Push notification support (Optional)
     // [self registerForPushNotifications:application];
+
+#if DEBUG
+    // MobileBoost test-only hook: simulates a Universal Link arrival when
+    // the app is launched with `-testDeepLinkURL <url>` as a launch argument.
+    //
+    // This is what TestBed-GPTDriverTests/Hybrid/DeepLink* tests rely on.
+    // Simulator builds (no code signing) do not honor the
+    // `com.apple.developer.associated-domains` entitlement, so Safari-based
+    // Universal Link handoff never fires in XCUITest. Instead the test
+    // passes the generated Branch link via launchArguments, and this hook
+    // constructs an NSUserActivity of type NSUserActivityTypeBrowsingWeb
+    // and calls `application:continueUserActivity:` — exactly the code path
+    // iOS would use for a real Universal Link delivery. The Branch SDK
+    // resolves the link metadata identically in both cases.
+    //
+    // Wrapped in `#if DEBUG` so it never ships in Release builds.
+    NSString *testDeepLinkURL = [[NSUserDefaults standardUserDefaults] stringForKey:@"testDeepLinkURL"];
+    if (testDeepLinkURL.length > 0) {
+        NSURL *url = [NSURL URLWithString:testDeepLinkURL];
+        if (url != nil) {
+            NSLog(@"[TestHook] -testDeepLinkURL received: %@", testDeepLinkURL);
+            // Delay 1.5s so Branch.initSessionWithLaunchOptions has time to
+            // register the deep link handler and complete the initial open
+            // request before we deliver the synthetic continueUserActivity.
+            dispatch_after(
+                dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
+                dispatch_get_main_queue(),
+                ^{
+                    NSUserActivity *activity = [[NSUserActivity alloc]
+                        initWithActivityType:NSUserActivityTypeBrowsingWeb];
+                    activity.webpageURL = url;
+                    NSLog(@"[TestHook] Delivering synthetic continueUserActivity: %@", url);
+                    [self application:application
+                         continueUserActivity:activity
+                           restorationHandler:^(NSArray<id<UIUserActivityRestoring>> * _Nullable restorableObjects) {
+                               NSLog(@"[TestHook] Synthetic continueUserActivity restorationHandler called");
+                           }];
+                });
+        }
+    }
+#endif
 
     return YES;
 }
@@ -298,6 +352,21 @@ void APPLogHookFunction(NSDate*_Nonnull timestamp, BranchLogLevel level, NSStrin
         self.PrevCommandLogFileName = self.logFileName;
         self.logFileName = pathForLog;
     }
+}
+
+#pragma mark - UNUserNotificationCenterDelegate
+
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+       willPresentNotification:(UNNotification *)notification
+         withCompletionHandler:(void (^)(UNNotificationPresentationOptions options))completionHandler {
+    completionHandler(UNNotificationPresentationOptionAlert | UNNotificationPresentationOptionSound);
+}
+
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+didReceiveNotificationResponse:(UNNotificationResponse *)response
+         withCompletionHandler:(void (^)(void))completionHandler {
+    [[Branch getInstance] handlePushNotification:response.notification.request.content.userInfo];
+    completionHandler();
 }
 
 @end
