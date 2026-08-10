@@ -1038,23 +1038,33 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
 }
 
 - (void)persistPrefsToDisk {
-    if (self.useStorage) {
-        @synchronized (self) {
-            if (!self.persistenceDict) return;
-            
-            NSData *data = [self serializePrefDict:self.persistenceDict];
-            if (!data) return;
-            
-            NSURL *prefsURL = [self.class.URLForPrefsFile copy];
-            NSBlockOperation *newPersistOp = [NSBlockOperation blockOperationWithBlock:^ {
+    if (!self.useStorage) return;
+
+    @synchronized (self) {
+        if (!self.persistenceDict) return;
+
+        NSData *data = [self serializePrefDict:self.persistenceDict];
+        if (!data) return;
+
+        NSURL *prefsURL = [self.class.URLForPrefsFile copy];
+
+        // Coalesce: drop older pending writes to avoid retaining many large NSData snapshots
+        [_persistPrefsQueue cancelAllOperations];
+
+        NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
+            @autoreleasepool {
                 NSError *error = nil;
                 [data writeToURL:prefsURL options:NSDataWritingAtomic error:&error];
                 if (error) {
                     [[BranchLogger shared] logWarning:@"Failed to persist preferences" error:error];
                 }
-            }];
-            [_persistPrefsQueue addOperation:newPersistOp];
-        }
+            }
+        }];
+
+        // Optional: lower priority; it’s background I/O
+        op.queuePriority = NSOperationQueuePriorityLow;
+
+        [_persistPrefsQueue addOperation:op];
     }
 }
 

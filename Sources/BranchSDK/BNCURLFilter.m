@@ -106,18 +106,35 @@
         return;
     }
 
-    NSString *urlString = [NSString stringWithFormat:@"%@/sdk/uriskiplist_v%ld.json", [BNCPreferenceHelper sharedInstance].patternListURL, (long) self.listVersion+1];
-    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:30.0];
+    NSString *urlString = [NSString stringWithFormat:@"%@/sdk/uriskiplist_v%ld.json",
+                           [BNCPreferenceHelper sharedInstance].patternListURL,
+                           (long)self.listVersion + 1];
+    NSMutableURLRequest *request =
+        [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString]
+                                 cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                             timeoutInterval:30.0];
 
     __block id<BNCNetworkServiceProtocol> networkService = [[Branch networkServiceClass] new];
-    id<BNCNetworkOperationProtocol> operation = [networkService networkOperationWithURLRequest:request completion: ^(id<BNCNetworkOperationProtocol> operation) {
-        [self processServerOperation:operation];
+
+    __weak typeof(self) weakSelf = self;
+    id<BNCNetworkOperationProtocol> operation =
+    [networkService networkOperationWithURLRequest:request
+                                        completion:^(id<BNCNetworkOperationProtocol> op) {
+        // Process result
+        [weakSelf processServerOperation:op];
+
         if (completion) {
             completion();
         }
+
+        // IMPORTANT: break the NSURLSession delegate retain cycle
+        [networkService cancelAllOperations];   // invalidates and cancels the session
+        networkService = nil;                   // drop our last reference ASAP
     }];
+
     [operation start];
 }
+
 
 - (BOOL)foundUpdatedURLList:(id<BNCNetworkOperationProtocol>)operation {
     NSInteger statusCode = operation.response.statusCode;
