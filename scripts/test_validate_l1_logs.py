@@ -6,13 +6,17 @@ Run from the repo root:
 
 Fixtures live in scripts/fixtures/ — each file is a snippet of a real
 branchlogs.txt capture, hand-tailored to exercise one validator behaviour.
+They encode the 4.0.0-beta wire protocol (`/v3/events/open`, `/v3/deeplink`,
+`/v3/events/standard`, `/v1/url`), not master's v1 protocol.
 """
 
+import inspect
 import io
 import os
 import sys
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
+from urllib.parse import urlparse
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, THIS_DIR)
@@ -26,13 +30,22 @@ def _fixture(name):
     return os.path.join(FIXTURE_DIR, name)
 
 
-def _run_validation(fixture_name):
+# Asserts nothing about the wire shape, so a field-validation test is not
+# also asserting counts. Scenario tests pass a real contract instead.
+ANY_CAPTURE = {"counts": {}, "order": ()}
+
+# One open and nothing else, for fixtures that exercise a validator behaviour
+# rather than a scenario's wire shape.
+ONE_OPEN = {"counts": {"/v3/events/open": 1}, "order": ()}
+
+
+def _run_validation(fixture_name, contract=ANY_CAPTURE):
     """Run validate_entries on a fixture and capture stdout. Returns
     (errors, captured_output)."""
     entries = v.parse_branch_logs(_fixture(fixture_name))
     buf = io.StringIO()
     with redirect_stdout(buf):
-        errors = v.validate_entries(entries)
+        errors = v.validate_entries(entries, contract)
     return errors, buf.getvalue()
 
 
@@ -44,9 +57,471 @@ class ParseBranchLogsTests(unittest.TestCase):
     def test_parses_branchlog_request_lines(self):
         entries = v.parse_branch_logs(_fixture("happy_path.txt"))
         self.assertEqual(len(entries), 2)
-        self.assertEqual(entries[0]["uri"], "/v1/install")
-        self.assertEqual(entries[1]["uri"], "/v1/open")
+        self.assertEqual(entries[0]["uri"], "/v3/events/open")
+        self.assertEqual(entries[1]["uri"], "/v1/url")
         self.assertIsInstance(entries[0]["request"], dict)
+
+
+class NormalizedCaptureFormatTests(unittest.TestCase):
+    """The entry shape is the seam between the platform-specific parser and
+    every check downstream. Android's parser emits the same three keys, so a
+    drift here silently breaks the shared checks rather than this parser."""
+
+    def test_parser_emits_exactly_the_declared_keys(self):
+        entries = v.parse_branch_logs(_fixture("happy_path.txt"))
+        self.assertTrue(entries)
+        for entry in entries:
+            self.assertEqual(
+                tuple(sorted(entry)), tuple(sorted(v.CAPTURE_ENTRY_KEYS))
+            )
+
+    def test_uri_is_the_url_path(self):
+        entries = v.parse_branch_logs(_fixture("happy_path.txt"))
+        for entry in entries:
+            self.assertEqual(entry["uri"], urlparse(entry["url"]).path)
+
+
+class ScenarioContractModelTests(unittest.TestCase):
+    """The contract carries every endpoint name, so the checks can stay
+    platform- and API-version-agnostic. Not yet wired into validation."""
+
+    def test_every_contract_declares_counts_order_and_fields(self):
+        optional = {"carrying", "carried_by_all", "max_counts"}
+        for name, contract in v.SCENARIO_CONTRACTS.items():
+            self.assertEqual(
+                set(contract) - optional, {"counts", "order", "fields"}, f"contract '{name}'"
+            )
+
+    def test_field_counts_are_non_negative_integers(self):
+        for name, contract in v.SCENARIO_CONTRACTS.items():
+            for endpoint, fields in contract["fields"].items():
+                for field, count in fields.items():
+                    self.assertIsInstance(count, int, f"{name}:{endpoint}:{field}")
+                    self.assertGreaterEqual(count, 0, f"{name}:{endpoint}:{field}")
+
+    def test_every_fields_endpoint_is_also_in_counts(self):
+        # A typo here would otherwise assert nothing: no request matches the
+        # misspelled endpoint, so the count is 0 and a `0` rule passes vacuously.
+        for name, contract in v.SCENARIO_CONTRACTS.items():
+            for endpoint in contract["fields"]:
+                self.assertIn(endpoint, contract["counts"], f"contract '{name}'")
+
+    def test_a_field_count_cannot_exceed_its_endpoint_count(self):
+        for name, contract in v.SCENARIO_CONTRACTS.items():
+            for endpoint, fields in contract["fields"].items():
+                for field, count in fields.items():
+                    self.assertLessEqual(
+                        count, contract["counts"][endpoint], f"{name}:{endpoint}:{field}"
+                    )
+
+    def test_counts_are_non_negative_integers(self):
+        for name, contract in v.SCENARIO_CONTRACTS.items():
+            for endpoint, count in contract["counts"].items():
+                self.assertIsInstance(count, int, f"{name}:{endpoint}")
+                self.assertGreaterEqual(count, 0, f"{name}:{endpoint}")
+
+    def test_order_entries_are_endpoint_pairs(self):
+        for name, contract in v.SCENARIO_CONTRACTS.items():
+            for pair in contract["order"]:
+                self.assertEqual(len(pair), 2, f"contract '{name}'")
+                self.assertNotEqual(pair[0], pair[1], f"contract '{name}'")
+
+    def test_contract_for_returns_the_named_contract(self):
+        self.assertIs(v.contract_for("deeplink"), v.SCENARIO_CONTRACTS["deeplink"])
+
+    def test_contract_for_raises_on_an_unknown_name(self):
+        # A typo must fail loudly instead of validating against nothing.
+        with self.assertRaises(v.UnknownScenario) as ctx:
+            v.contract_for("deeplnk")
+        self.assertIn("deeplnk", str(ctx.exception))
+
+
+def _capture(*uris):
+    """Normalized entries with fabricated endpoint names. The engine must not
+    care that these are not real Branch endpoints."""
+    return [{"uri": u, "url": "https://example.test" + u, "request": {}} for u in uris]
+
+
+class AssertionEngineTests(unittest.TestCase):
+    """Driven entirely from fabricated endpoints, which is what proves the
+    engine holds no endpoint name and no log format of its own."""
+
+    def test_exact_count_satisfied(self):
+        contract = {"counts": {"/alpha": 2}, "order": ()}
+        self.assertEqual(v.assert_contract(_capture("/alpha", "/alpha"), contract), [])
+
+    def test_too_many_fails(self):
+        contract = {"counts": {"/alpha": 1}, "order": ()}
+        errors = v.assert_contract(_capture("/alpha", "/alpha"), contract)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Expected 1", errors[0])
+
+    def test_too_few_fails(self):
+        contract = {"counts": {"/alpha": 2}, "order": ()}
+        errors = v.assert_contract(_capture("/alpha"), contract)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("captured 1", errors[0])
+
+    def test_count_zero_forbids_the_endpoint(self):
+        contract = {"counts": {"/beta": 0}, "order": ()}
+        self.assertEqual(v.assert_contract(_capture("/alpha"), contract), [])
+        errors = v.assert_contract(_capture("/alpha", "/beta"), contract)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("must not be captured", errors[0])
+
+    def test_unlisted_endpoints_are_unconstrained(self):
+        contract = {"counts": {"/alpha": 1}, "order": ()}
+        self.assertEqual(v.assert_contract(_capture("/alpha", "/gamma"), contract), [])
+
+    def test_order_holds_when_other_traffic_interleaves(self):
+        # The real shape: a launch open precedes the link resolution, and the
+        # attributed open follows it. "first after first" would fail this.
+        contract = {"counts": {}, "order": (("/beta", "/alpha"),)}
+        self.assertEqual(
+            v.assert_contract(_capture("/alpha", "/beta", "/alpha"), contract), []
+        )
+
+    def test_order_violated_when_later_never_follows(self):
+        contract = {"counts": {}, "order": (("/beta", "/alpha"),)}
+        errors = v.assert_contract(_capture("/alpha", "/beta"), contract)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("after", errors[0])
+
+    def test_order_is_fail_closed_when_an_endpoint_is_absent(self):
+        # An order check that passes vacuously repeats the defect this engine
+        # exists to remove.
+        contract = {"counts": {}, "order": (("/beta", "/alpha"),)}
+        self.assertEqual(len(v.assert_contract(_capture("/alpha"), contract)), 1)
+        self.assertEqual(len(v.assert_contract([], contract)), 1)
+
+    def test_every_violation_is_reported_not_just_the_first(self):
+        contract = {"counts": {"/alpha": 5, "/beta": 0}, "order": (("/beta", "/alpha"),)}
+        self.assertEqual(len(v.assert_contract(_capture("/alpha", "/beta"), contract)), 3)
+
+    def test_the_seeded_deeplink_contract_accepts_the_real_capture_shape(self):
+        # Measured on device: open, deeplink, open.
+        errors = v.assert_contract(
+            _capture("/v3/events/open", "/v3/deeplink", "/v3/events/open"),
+            v.contract_for("deeplink"),
+        )
+        self.assertEqual(errors, [], f"Unexpected errors: {errors}")
+
+
+class FieldPresenceEngineTests(unittest.TestCase):
+    """`fields` counts how many of an endpoint's requests carry a field.
+    Presence only — `is_present` is the whole test."""
+
+    def _entries(self, *payloads):
+        return [
+            {"uri": "/e", "url": "https://h/e", "request": p} for p in payloads
+        ]
+
+    def _contract(self, fields):
+        return {"counts": {}, "order": (), "fields": {"/e": fields}}
+
+    def test_exact_field_count_satisfied(self):
+        entries = self._entries({"tok": "a"}, {})
+        self.assertEqual(v.assert_contract(entries, self._contract({"tok": 1})), [])
+
+    def test_too_many_carriers_fails(self):
+        entries = self._entries({"tok": "a"}, {"tok": "b"})
+        errors = v.assert_contract(entries, self._contract({"tok": 1}))
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("2 of 2 did", errors[0])
+
+    def test_zero_forbids_the_field(self):
+        entries = self._entries({"tok": "a"}, {})
+        errors = v.assert_contract(entries, self._contract({"tok": 0}))
+        self.assertIn("may carry", errors[0])
+
+    def test_empty_string_does_not_count_as_carrying(self):
+        # is_present treats "" as absent; the field rule must agree, or a
+        # cleared identifier would read as present.
+        entries = self._entries({"tok": ""}, {})
+        self.assertEqual(v.assert_contract(entries, self._contract({"tok": 0})), [])
+
+    def test_the_v2_shape_is_resolved(self):
+        # lookup_field reaches under user_data, so a v2 payload is not a miss.
+        entries = self._entries({"user_data": {"tok": "a"}})
+        self.assertEqual(v.assert_contract(entries, self._contract({"tok": 1})), [])
+
+    def test_other_endpoints_are_not_counted(self):
+        entries = self._entries({"tok": "a"})
+        entries.append({"uri": "/other", "url": "https://h/other", "request": {"tok": "b"}})
+        self.assertEqual(v.assert_contract(entries, self._contract({"tok": 1})), [])
+
+
+class EnginePortabilityTests(unittest.TestCase):
+    def test_engine_source_holds_no_endpoint_or_log_format_literal(self):
+        """The engine must be liftable into the Android repo unchanged. A
+        literal endpoint or capture-format string here would break that, and
+        would not be caught by the behavioural tests above."""
+        source = "".join(
+            inspect.getsource(fn) for fn in (v.assert_contract, v.occurs_after)
+        )
+        for forbidden in ("/v1", "/v2", "/v3", "BranchLog", "posting to", "Post value"):
+            self.assertNotIn(forbidden, source, f"engine leaked '{forbidden}'")
+
+
+class RetryCollapseTests(unittest.TestCase):
+    """One logical request is logged once per attempt, because the SDK's retry
+    handler re-runs the request builder and that is what writes the line.
+    Counting attempts would fail an exact-count contract on a flaky network."""
+
+    def test_retried_request_counts_once(self):
+        entries = v.parse_branch_logs(_fixture("retried_open.txt"))
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["request"][v.RETRY_COUNT_FIELD], 0)
+
+    def test_retried_capture_satisfies_an_exact_count_contract(self):
+        entries = v.parse_branch_logs(_fixture("retried_open.txt"))
+        self.assertEqual(v.assert_contract(entries, ONE_OPEN), [])
+
+    def test_first_attempt_is_kept(self):
+        kept = v.collapse_retries([{"uri": "/a", "url": "u", "request": {"retryNumber": 0}}])
+        self.assertEqual(len(kept), 1)
+
+    def test_entries_without_the_field_are_kept(self):
+        # Android bodies may not carry it; dropping them would empty a capture.
+        kept = v.collapse_retries([{"uri": "/a", "url": "u", "request": {}}])
+        self.assertEqual(len(kept), 1)
+
+    def test_a_boolean_is_not_read_as_an_attempt_number(self):
+        kept = v.collapse_retries([{"uri": "/a", "url": "u", "request": {"retryNumber": True}}])
+        self.assertEqual(len(kept), 1)
+
+    def test_non_dict_body_is_kept(self):
+        kept = v.collapse_retries([{"uri": "/a", "url": "u", "request": []}])
+        self.assertEqual(len(kept), 1)
+
+
+class InstallContractTests(unittest.TestCase):
+    """install, the worked example: the nil-URL deferred lookup that
+    requestDeepLinkDataWithLaunchOptions: sends, then one open. Each test
+    below proves an assertion type FAILS on a violating capture — a contract
+    only demonstrated passing is a contract that cannot fail."""
+
+    def test_a_clean_install_capture_passes(self):
+        # Derived from a real capture, identifiers replaced: deeplink(nil), then
+        # the open.
+        errors, _ = _run_validation("install.txt", v.contract_for("install"))
+        self.assertEqual(errors, [], f"Unexpected errors: {errors}")
+
+    def test_wrong_count_fails(self):
+        # Two opens is the duplicate-open shape #1612 produced. Before this
+        # engine the capture could not fail, which is why it went unnoticed.
+        errors, _ = _run_validation("install_duplicate_open.txt", v.contract_for("install"))
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("Expected 1", errors[0])
+        self.assertIn("captured 2", errors[0])
+
+    def test_missing_deferred_lookup_fails(self):
+        # An install with no lookup means the AppDelegate call went missing.
+        # Both halves fire: the count, and the open that has nothing before it.
+        errors, _ = _run_validation("happy_path.txt", v.contract_for("install"))
+        self.assertTrue(
+            any("Expected 1 '/v3/deeplink'" in e and "captured 0" in e for e in errors),
+            errors,
+        )
+        self.assertTrue(any("after" in e for e in errors), errors)
+
+    def test_install_does_not_tell_a_cold_first_install_apart(self):
+        # Recorded, not hidden: both send one resolve then one tokenless open.
+        # Only link_data on the open differs, and install asserts no fields.
+        errors, _ = _run_validation("cold_firstInstall.txt", v.contract_for("install"))
+        self.assertEqual(errors, [], errors)
+
+    def test_a_second_lookup_fails(self):
+        # install_two_lookups.txt is spliced: two deeplinks, then the open.
+        errors, _ = _run_validation("install_two_lookups.txt", v.contract_for("install"))
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("Expected 1 '/v3/deeplink'", errors[0])
+        self.assertIn("captured 2", errors[0])
+
+    def test_wrong_order_fails(self):
+        # deeplink.txt is open then deeplink, with no open after it, so the
+        # deeplink contract's ordering rule is violated.
+        errors, _ = _run_validation("deeplink.txt", v.contract_for("deeplink"))
+        self.assertTrue(
+            any("after" in e for e in errors), f"Expected an order error: {errors}"
+        )
+
+    def test_open_before_the_lookup_fails_install_order(self):
+        # deeplink.txt is open, then deeplink: the right counts for a lookup
+        # but the open precedes it, so only the order rule can see it.
+        errors, _ = _run_validation("deeplink.txt", v.contract_for("install"))
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("after", errors[0])
+
+    def test_install_does_not_assert_the_absence_of_link_data_in_the_open(self):
+        # Recorded, not hidden: the plan also wants the open to carry no link
+        # data. That is a field-level assertion this layer does not make.
+        self.assertEqual(v.contract_for("install")["counts"].get("/v3/deeplink"), 1)
+
+
+class AttributionNoneContractTests(unittest.TestCase):
+    """attribution_none: at consumer-protection level NONE,
+    BNCServerRequestOperation drops every request except BranchRequestDeepLink,
+    so the resolution goes out and the attributed open does not."""
+
+    def test_the_none_level_capture_passes(self):
+        errors, _ = _run_validation("attribution_none.txt", v.contract_for("attribution_none"))
+        self.assertEqual(errors, [], f"Unexpected errors: {errors}")
+
+    def test_an_open_at_none_level_fails(self):
+        # The regression attribution_none exists to catch: an open must not
+        # be sent at NONE.
+        errors, _ = _run_validation(
+            "attribution_none_deeplink.txt", v.contract_for("attribution_none")
+        )
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("must not be captured", errors[0])
+        self.assertIn("/v3/events/open", errors[0])
+
+    def test_the_old_global_rule_would_have_failed_this_correct_capture(self):
+        # The retired MANDATORY_ENDPOINT required an open in every capture.
+        # install still does, and attribution_none's capture is correct without
+        # one, which is why a single global rule could not serve both.
+        errors, _ = _run_validation("attribution_none.txt", v.contract_for("install"))
+        self.assertTrue(
+            any("/v3/events/open" in e for e in errors),
+            f"Expected the open requirement to fire: {errors}",
+        )
+
+    def test_attribution_none_does_not_assert_that_identifiers_were_cleared(self):
+        # Recorded, not hidden: that is a field-level assertion, and this layer
+        # is bounded at counts and required-field presence.
+        self.assertEqual(
+            set(v.contract_for("attribution_none")["counts"]),
+            {"/v3/deeplink", "/v3/events/open"},
+        )
+
+
+class ColdHttpsContractTests(unittest.TestCase):
+    """cold_https: a Universal Link into a freshly launched process on a
+    device that already has the app. Fixture is derived from a real capture
+    measured on an iPhone 16 Pro simulator with the activity in launchOptions,
+    identifiers replaced: deeplink(link), then the attributed open."""
+
+    def test_the_cold_link_capture_passes(self):
+        errors, _ = _run_validation("cold_https.txt", v.contract_for("cold_https"))
+        self.assertEqual(errors, [], f"Unexpected errors: {errors}")
+
+    def test_a_resolution_with_no_attributed_open_fails(self):
+        # The regression cold_https exists to catch: the link resolves and
+        # the open that attributes it never follows. Both halves fire.
+        errors, _ = _run_validation(
+            "cold_https_no_attributed_open.txt", v.contract_for("cold_https")
+        )
+        self.assertTrue(
+            any("Expected 1 '/v3/events/open'" in e for e in errors), errors
+        )
+        self.assertTrue(any("after" in e for e in errors), errors)
+
+    def test_one_open_is_the_contract_not_a_gap(self):
+        # A cold Universal Link launch carries the activity in launchOptions,
+        # so no nil-URL lookup and no launch open ahead of the link's. Two
+        # opens here would mean the lookup came back.
+        self.assertEqual(v.contract_for("cold_https")["counts"]["/v3/events/open"], 1)
+
+    def test_a_nil_lookup_ahead_of_the_link_fails(self):
+        # The pre-fix shape: deeplink(nil), open, deeplink(link), open. The
+        # fixture is spliced from the install and cold_https fixtures. Both the
+        # deeplink and the open count fire.
+        errors, _ = _run_validation(
+            "cold_https_nil_lookup.txt", v.contract_for("cold_https")
+        )
+        self.assertTrue(
+            any("Expected 1 '/v3/deeplink'" in e and "captured 2" in e for e in errors),
+            errors,
+        )
+        self.assertTrue(
+            any("Expected 1 '/v3/events/open'" in e and "captured 2" in e for e in errors),
+            errors,
+        )
+
+    def test_the_one_open_is_the_attributed_one(self):
+        # Not asserted by the contract, which is bounded at counts and order.
+        # Pinned so a future field-level contract has its discriminator: the
+        # open that remains is the one carrying link data.
+        entries = v.parse_branch_logs(_fixture("cold_https.txt"))
+        opens = [e for e in entries if e["uri"] == "/v3/events/open"]
+        self.assertEqual(len(opens), 1)
+        self.assertIn("link_data", opens[0]["request"])
+
+    def test_the_open_carries_the_token_when_the_app_was_already_installed(self):
+        # An already-installed launch has a bundle token to send.
+        fields = v.contract_for("cold_https")["fields"]
+        self.assertEqual(fields["/v3/events/open"]["randomized_bundle_token"], 1)
+
+    def test_an_open_without_the_token_fails(self):
+        # The install-open shape (no token) passing as an already-installed
+        # launch is the EMT-4027 failure from the other side.
+        errors, _ = _run_validation("cold_https_open_no_token.txt", v.contract_for("cold_https"))
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("randomized_bundle_token", errors[0])
+        self.assertIn("0 of 1 did", errors[0])
+
+    def test_cold_https_does_not_assert_that_the_resolution_carries_the_link(self):
+        # Recorded, not hidden: asserting the link URL would be a value
+        # comparison, and this layer stops at presence.
+        self.assertNotIn("/v3/deeplink", v.contract_for("cold_https")["fields"])
+
+
+class ColdFirstInstallContractTests(unittest.TestCase):
+    """cold_firstInstall: the same launch with no prior install. There is no
+    install endpoint on this line -- install posts to /v3/events/open like any
+    other request -- so the install is the one open, carrying link_data and no
+    randomized_bundle_token. Fixture is the shape CI captured after the
+    launch-options fix: deeplink(link), then the install open."""
+
+    def test_the_first_install_capture_passes(self):
+        errors, _ = _run_validation(
+            "cold_firstInstall.txt", v.contract_for("cold_firstInstall")
+        )
+        self.assertEqual(errors, [], f"Unexpected errors: {errors}")
+
+    def test_one_open_is_the_contract_not_a_gap(self):
+        # The second open the old contract expected came from the nil-URL
+        # lookup the launch options now suppress. Two here would mean it came back.
+        self.assertEqual(
+            v.contract_for("cold_firstInstall")["counts"]["/v3/events/open"], 1
+        )
+
+    def test_an_install_open_carrying_a_token_fails(self):
+        # The EMT-4027 shape: nothing on the surface is ever an install, so the
+        # open looks like any other. Counts and order stay identical -- this
+        # field rule is the only thing that sees it.
+        errors, _ = _run_validation(
+            "cold_firstInstall_install_open_carries_token.txt",
+            v.contract_for("cold_firstInstall"),
+        )
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("randomized_bundle_token", errors[0])
+        self.assertIn("1 of 1 did", errors[0])
+
+    def test_the_two_cold_scenarios_differ_by_the_token(self):
+        # Both send one resolve and one open, so the open count no longer
+        # tells them apart. The token on that open is the only discriminator.
+        https = v.contract_for("cold_https")
+        first = v.contract_for("cold_firstInstall")
+        self.assertEqual(https["counts"], first["counts"])
+        self.assertEqual(https["fields"]["/v3/events/open"]["randomized_bundle_token"], 1)
+        self.assertEqual(first["fields"]["/v3/events/open"]["randomized_bundle_token"], 0)
+
+    def test_the_two_scenarios_reject_each_other_fixtures(self):
+        https_as_first, _ = _run_validation(
+            "cold_https.txt", v.contract_for("cold_firstInstall")
+        )
+        first_as_https, _ = _run_validation(
+            "cold_firstInstall.txt", v.contract_for("cold_https")
+        )
+        self.assertTrue(
+            https_as_first, "cold_firstInstall accepted an already-installed capture"
+        )
+        self.assertTrue(
+            first_as_https, "cold_https accepted a first-install capture"
+        )
 
 
 class HappyPathTests(unittest.TestCase):
@@ -95,41 +570,232 @@ class MissingFieldTests(unittest.TestCase):
 
 
 class V2NestingTests(unittest.TestCase):
-    """iOS nests device fields under user_data on /v2/event/* — lookup must
+    """iOS nests device fields under user_data on /v3/events/* — lookup must
     descend into the nested block to find them."""
 
     def test_v2_nested_fields_resolve(self):
-        entries = v.parse_branch_logs(_fixture("v2_nested.txt"))
+        entries = v.parse_branch_logs(_fixture("v3_nested.txt"))
         request = entries[0]["request"]
         self.assertEqual(v.lookup_field(request, "brand"), "Apple")
         self.assertEqual(v.lookup_field(request, "connection_type"), "wifi")
         self.assertEqual(v.lookup_field(request, "sdk"), "ios")
 
+    def test_v2_event_contract_is_satisfied_by_nested_shape(self):
+        entries = v.parse_branch_logs(_fixture("v3_nested.txt"))
+        request = entries[0]["request"]
+        missing = [
+            f for f in v.REQUIRED_V2_EVENT
+            if not v.is_present(v.lookup_field(request, f))
+        ]
+        self.assertEqual(missing, [], f"Unresolved v2 fields: {missing}")
 
-class InstallRequiredTests(unittest.TestCase):
-    """/v1/install is the canonical entry-point and must be in the capture."""
 
-    def test_capture_without_install_fails(self):
-        errors, _ = _run_validation("no_install.txt")
+class OpenRequiredTests(unittest.TestCase):
+    """On this line install and open both post to /v3/events/open, so every
+    session produces one and a capture without it is a broken capture.
+    /v1/install is never sent and is no longer asserted."""
+
+    def test_capture_without_open_fails_when_the_contract_requires_one(self):
+        errors, _ = _run_validation("no_open.txt", v.contract_for("install"))
         self.assertTrue(
-            any("'/v1/install' was not captured" in e for e in errors),
-            f"Expected install-missing error, got: {errors}",
+            any("'/v3/events/open'" in e for e in errors),
+            f"Expected open-missing error, got: {errors}",
+        )
+
+    def test_v1_install_is_not_demanded(self):
+        # no_open.txt has no /v1/install either; the only complaint must be
+        # about the open.
+        errors, _ = _run_validation("no_open.txt")
+        self.assertFalse(
+            any("/v1/install" in e for e in errors),
+            f"Retired endpoint still asserted: {errors}",
+        )
+
+    def test_retired_v1_endpoints_have_no_contract(self):
+        self.assertNotIn("/v1/install", v.REQUIRED_PER_ENDPOINT)
+        self.assertNotIn("/v1/open", v.REQUIRED_PER_ENDPOINT)
+
+
+class BetaEndpointCoverageTests(unittest.TestCase):
+    """The three endpoints this line uses for attribution traffic are
+    checked, not skipped. Prefix-scoping to /v1/* was what let them pass
+    unexamined."""
+
+    def test_open_event_and_deeplink_all_have_contracts(self):
+        for uri in ("/v3/events/open", "/v3/deeplink", "/v3/events/standard"):
+            self.assertIn(uri, v.REQUIRED_PER_ENDPOINT)
+            self.assertTrue(v.required_fields_for(uri, {}))
+
+    def test_open_carries_the_install_identity_pair(self):
+        # These were /v1/install-only on master; the open absorbed them.
+        fields = v.required_fields_for("/v3/events/open", {})
+        self.assertIn("first_install_time", fields)
+        self.assertIn("is_hardware_id_real", fields)
+
+    def test_open_does_not_require_conditional_tokens(self):
+        # A first-ever install open has no device/bundle token yet.
+        fields = v.required_fields_for("/v3/events/open", {})
+        self.assertNotIn("randomized_device_token", fields)
+        self.assertNotIn("randomized_bundle_token", fields)
+
+    def test_v2_event_requires_idfv_not_hardware_id(self):
+        # /v3/events/* spells the vendor id `idfv` under user_data.
+        fields = v.required_fields_for("/v3/events/standard", {})
+        self.assertIn("idfv", fields)
+        self.assertNotIn("hardware_id", fields)
+
+    def test_v2_event_missing_device_field_fails(self):
+        errors, output = _run_validation("v3_event_missing_idfv.txt")
+        self.assertTrue(
+            any("missing required field 'idfv'" in e for e in errors),
+            f"Expected idfv-missing error, got: {errors}",
+        )
+        self.assertIn("/v3/events/standard", output)
+
+    def test_deeplink_is_checked_and_passes(self):
+        errors, output = _run_validation("deeplink.txt")
+        self.assertEqual(errors, [], f"Unexpected errors: {errors}")
+        self.assertIn("/v3/deeplink", output)
+
+    def test_absent_deeplink_is_fine_when_no_contract_mentions_it(self):
+        # Replaces the old unconditional note: silence is now the contract's
+        # job, not a hardcoded exception for one endpoint.
+        errors, _ = _run_validation("happy_path.txt")
+        self.assertEqual(errors, [], f"Unexpected errors: {errors}")
+
+    def test_deeplink_does_not_require_ios_app_link_url(self):
+        # Cold resolution carries no URL; only the URL-driven one does.
+        self.assertNotIn(
+            "ios_app_link_url", v.required_fields_for("/v3/deeplink", {})
         )
 
 
-class NonV1EndpointScopeTests(unittest.TestCase):
-    """L1's contract covers /v1/* only. /v2/event/* uses a different schema
-    (device fields under user_data, no top-level hardware_id) and must not
-    fail the run when captured alongside a valid /v1/install."""
+class ScenarioEnforcementTests(unittest.TestCase):
+    """A capture is judged against its scenario's contract, so the same file
+    passes one scenario and fails another."""
 
-    def test_v2_event_does_not_trigger_field_failures(self):
-        errors, output = _run_validation("v2_event_out_of_scope.txt")
+    def test_deeplink_scenario_fails_when_deeplink_absent(self):
+        errors, _ = _run_validation("happy_path.txt", v.contract_for("deeplink"))
+        self.assertTrue(
+            any("/v3/deeplink" in e for e in errors),
+            f"Expected a missing-deeplink error, got: {errors}",
+        )
+
+    def test_deeplink_scenario_passes_on_the_measured_capture_shape(self):
+        # open, deeplink, open — measured on device. The launch open precedes
+        # the resolution, so an order rule of "first after first" would fail
+        # this correct capture.
+        errors, _ = _run_validation("deeplink_scenario.txt", v.contract_for("deeplink"))
+        self.assertEqual(errors, [], f"Unexpected errors: {errors}")
+
+    def test_the_same_capture_passes_install_and_fails_attribution_none(self):
+        # The point of per-scenario contracts: one global rule cannot express
+        # this, and before this change the install capture could not fail.
+        passing, _ = _run_validation("install.txt", v.contract_for("install"))
+        failing, _ = _run_validation("install.txt", v.contract_for("attribution_none"))
+        self.assertEqual(passing, [])
+        self.assertTrue(failing)
+
+    def test_unrecognised_scenario_exits_rather_than_downgrading(self):
+        # A typo in a CI matrix must fail loudly, not fall back to the
+        # weaker default and report a pass.
+        saved_argv = sys.argv
+        sys.argv = [
+            "validate_l1_logs.py",
+            _fixture("happy_path.txt"),
+            "--scenario",
+            "deeplinks",
+        ]
+        try:
+            with redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
+                with self.assertRaises(SystemExit) as ctx:
+                    v.main()
+            self.assertNotEqual(ctx.exception.code, 0)
+        finally:
+            sys.argv = saved_argv
+
+
+class AttributionLevelTierTests(unittest.TestCase):
+    """Parts of the device block are gated on the consumer-protection
+    attribution level (BNCRequestFactory.m:747 and :751-752), so the
+    required-field list has to be resolved per request from that request's
+    own `cpp_level` rather than applied flat."""
+
+    def test_none_level_deeplink_passes(self):
+        # /v3/deeplink is exempt from the attribution-None request skip
+        # (BNCServerRequestOperation.m:68-75), so a capture at level None
+        # still posts one — with the device block correctly stripped.
+        errors, output = _run_validation("attribution_none_deeplink.txt")
+        self.assertEqual(errors, [], f"Unexpected errors: {errors}")
+        self.assertIn("/v3/deeplink", output)
+
+    def test_full_level_still_requires_the_hardware_block(self):
+        errors, _ = _run_validation("attribution_full_missing_hardware.txt")
+        self.assertTrue(
+            any("missing required field 'hardware_id'" in e for e in errors),
+            f"Expected hardware_id-missing error, got: {errors}",
+        )
+        self.assertTrue(
+            any("missing required field 'is_hardware_id_real'" in e for e in errors),
+            f"Expected is_hardware_id_real-missing error, got: {errors}",
+        )
+
+    def test_absent_cpp_level_reads_as_uninitialized_and_requires_hardware(self):
+        # cpp_level is only emitted once the level has been set
+        # (BNCRequestFactory.m:641-646). Absent means uninitialized, which
+        # takes the same branch as Full at :751-752.
+        fields = v.required_fields_for("/v3/deeplink", {})
+        self.assertIn("hardware_id", fields)
+        self.assertIn("is_hardware_id_real", fields)
+
+    def test_none_level_drops_the_attribution_gated_fields(self):
+        fields = v.required_fields_for("/v3/deeplink", {"cpp_level": "NONE"})
+        for field in ("hardware_id", "is_hardware_id_real", "anon_id",
+                      "local_ip", "first_install_time"):
+            self.assertNotIn(field, fields)
+
+    def test_reduced_level_keeps_not_none_fields_but_drops_hardware(self):
+        fields = v.required_fields_for("/v3/deeplink", {"cpp_level": "REDUCED"})
+        self.assertIn("local_ip", fields)
+        self.assertIn("anon_id", fields)
+        self.assertNotIn("hardware_id", fields)
+        self.assertNotIn("is_hardware_id_real", fields)
+
+    def test_unconditional_fields_survive_every_level(self):
+        for level in (None, "FULL", "REDUCED", "MINIMAL", "NONE"):
+            request = {} if level is None else {"cpp_level": level}
+            fields = v.required_fields_for("/v3/events/open", request)
+            for field in ("branch_key", "sdk", "brand", "os", "connection_type"):
+                self.assertIn(field, fields, f"{field} dropped at level {level}")
+
+    def test_level_resolves_from_user_data_on_v2_shape(self):
+        # /v3/events/* nests cpp_level under user_data alongside the device
+        # block (BNCRequestFactory.m:733).
+        request = {"user_data": {"cpp_level": "REDUCED"}}
+        self.assertEqual(v.attribution_level(request), "REDUCED")
+
+    def test_v2_event_idfv_is_not_none_gated(self):
+        # v2dictionary gates idfv on not-None-or-uninitialized (:688-690).
+        self.assertNotIn(
+            "idfv", v.required_fields_for("/v3/events/standard",
+                                          {"user_data": {"cpp_level": "NONE"}})
+        )
+        self.assertIn(
+            "idfv", v.required_fields_for("/v3/events/standard", {})
+        )
+
+
+class UncontractedEndpointTests(unittest.TestCase):
+    """An endpoint with no entry in REQUIRED_PER_ENDPOINT is printed and
+    labelled, not silently skipped and not failed."""
+
+    def test_uncontracted_endpoint_does_not_fail_the_run(self):
+        errors, output = _run_validation("uncontracted_endpoint.txt")
         self.assertEqual(
             errors, [],
-            f"Mixed v1+v2 capture should not produce errors; got: {errors}",
+            f"Uncontracted endpoint should not produce errors; got: {errors}",
         )
-        self.assertIn("Non-v1 endpoint", output)
-        self.assertIn("required-field checks skipped per L1 scope", output)
+        self.assertIn("No L1 field contract defined for this endpoint", output)
 
 
 class LookupFieldTests(unittest.TestCase):

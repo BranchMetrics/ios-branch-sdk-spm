@@ -6,16 +6,11 @@
 //  Copyright (c) 2014 Branch Metrics. All rights reserved.
 //
 
-#import "Branch.h"
-#import "BranchEvent.h"
-#import "BranchQRCode.h"
-#import "BranchConstants.h"
-#import "BNCConfig.h"
+@import BranchSDK;
+#import "BNCConfig.h"  // For BNC_SDK_VERSION
 #import "ViewController.h"
 #import "LogOutputViewController.h"
 #import "ArrayPickerView.h"
-#import "BranchUniversalObject.h"
-#import "BranchLinkProperties.h"
 #import "LogOutputViewController.h"
 #import "AppDelegate.h"
 #import "TestBedIdentifiers.h"
@@ -128,18 +123,8 @@ bool hasSetPartnerParams = false;
         [appDelegate setLogFile:nil];
     };
     
-    if ([Branch trackingDisabled]) {
-        [self.disableTrackingButton setTitle:@"Enable Tracking" forState:UIControlStateNormal];
-        if (@available(iOS 13.0, macCatalyst 13.1, *)) {
-            [self.disableTrackingButton setImage:[UIImage systemImageNamed:@"eye.fill"] forState:UIControlStateNormal];
-        }
-    } else {
-        [self.disableTrackingButton setTitle:@"Disable Tracking" forState:UIControlStateNormal];
-        if (@available(iOS 13.0, macCatalyst 13.1, *)) {
-            [self.disableTrackingButton setImage:[UIImage systemImageNamed:@"eye.slash.fill"] forState:UIControlStateNormal];
-        }
-    }
-    
+    [self syncDisableTrackingButton];
+
     if (hasSetPartnerParams) {
         [self.setParnerParamsButton setTitle:@"Clear Partner Params" forState:UIControlStateNormal];
         if (@available(iOS 13.0, macCatalyst 13.1, *)) {
@@ -153,21 +138,21 @@ bool hasSetPartnerParams = false;
     }
 
     UIView *footerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, 120)];
-    
+
     UIButton *notificationButton = [UIButton buttonWithType:UIButtonTypeSystem];
     notificationButton.frame = CGRectMake(20, 10, footerView.frame.size.width - 40, 44);
     [notificationButton setTitle:@"Send Notification" forState:UIControlStateNormal];
     [notificationButton addTarget:self action:@selector(sendNotification:) forControlEvents:UIControlEventTouchUpInside];
     notificationButton.accessibilityIdentifier = kTestBedBtnNotificationSend;
     [footerView addSubview:notificationButton];
-    
+
     UIButton *pluginButton = [UIButton buttonWithType:UIButtonTypeSystem];
     pluginButton.frame = CGRectMake(20, 64, footerView.frame.size.width - 40, 44);
     [pluginButton setTitle:@"Simulate Plugin Notify Init" forState:UIControlStateNormal];
     [pluginButton addTarget:self action:@selector(pluginNotifyInit:) forControlEvents:UIControlEventTouchUpInside];
     pluginButton.accessibilityIdentifier = kTestBedBtnPluginNotifyInit;
     [footerView addSubview:pluginButton];
-    
+
     self.tableView.tableFooterView = footerView;
 }
 
@@ -177,7 +162,7 @@ bool hasSetPartnerParams = false;
 }
 
 - (IBAction)changeConsumerProtectionAttributionLevel:(id)sender {
-    Branch *branch = [Branch getInstance];
+    Branch *branch = [Branch sharedInstance];
     UIAlertController *actionSheet = [UIAlertController alertControllerWithTitle:@"Select Consumer Protection Attribution Level" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
     
     UIAlertAction *fullAction = [UIAlertAction actionWithTitle:@"Full" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
@@ -211,6 +196,32 @@ bool hasSetPartnerParams = false;
     [self presentViewController:actionSheet animated:YES completion:nil];
 }
 
+// Beta equivalent of master's `setTrackingDisabled:` toggle (EMT-3998). That API no longer exists
+// in 4.0; tracking is disabled here by moving the consumer protection attribution level to
+// BranchAttributionLevelNone and restored by moving it back to BranchAttributionLevelFull.
+- (IBAction)disableTracking:(id)sender {
+
+    // Derive the next level from the SDK, not from the button's title: the attribution level
+    // persists across launches while the storyboard resets the title to "Disable Tracking",
+    // so a title-driven toggle can leave the SDK stuck at None — which suppresses the
+    // automatic open and fails every later request with BNCInitError.
+    BranchAttributionLevel nextLevel =
+        [Branch attributionLevelNone] ? BranchAttributionLevelFull : BranchAttributionLevelNone;
+    [[Branch sharedInstance] setConsumerProtectionAttributionLevel:nextLevel];
+    [self syncDisableTrackingButton];
+}
+
+- (void)syncDisableTrackingButton {
+    BOOL trackingDisabled = [Branch attributionLevelNone];
+    [self.disableTrackingButton setTitle:(trackingDisabled ? @"Enable Tracking" : @"Disable Tracking")
+                                forState:UIControlStateNormal];
+    if (@available(iOS 13.0, macCatalyst 13.1, *)) {
+        NSString *imageName = trackingDisabled ? @"eye.fill" : @"eye.slash.fill";
+        [self.disableTrackingButton setImage:[UIImage systemImageNamed:imageName]
+                                    forState:UIControlStateNormal];
+    }
+}
+
 -(IBAction)showVersionAlert:(id)sender {
     NSString *versionString = [NSString stringWithFormat:@"Branch SDK v%@\nBundle Version %@\niOS %@",
                                BNC_SDK_VERSION,
@@ -241,9 +252,9 @@ bool hasSetPartnerParams = false;
 }
 
 - (IBAction)setUserIDButtonTouchUpInside:(id)sender {
-    Branch *branch = [Branch getInstance];
+    Branch *branch = [Branch sharedInstance];
     [appDelegate setLogFile:@"SetUserID"];
-    [branch setIdentity: user_id2 withCallback:^(NSDictionary *params, NSError *error) {
+    [branch setUserAlias: user_id2 completion:^(NSDictionary *params, NSError *error) {
         dispatch_async(dispatch_get_main_queue(), ^{
             [appDelegate setLogFile:nil];
             if (!error) {
@@ -261,7 +272,7 @@ bool hasSetPartnerParams = false;
 
 
 - (IBAction)logoutWithCallback {
-    Branch *branch = [Branch getInstance];
+    Branch *branch = [Branch sharedInstance];
     [branch logoutWithCallback:^(BOOL changed, NSError *error) {
         if (error || !changed) {
             NSLog(@"Branch TestBed: Logout failed: %@", error);
@@ -343,24 +354,40 @@ bool hasSetPartnerParams = false;
         }];
     }]];
     
+    [actionSheet addAction:[UIAlertAction actionWithTitle:@"Custom Event" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        event = [[BranchEvent alloc] initWithName:@"my_custom_event"];
+        event.alias = @"my custom alias";
+        event.eventDescription = @"Testbed custom event";
+        event.customData = (NSMutableDictionary*) @{
+            @"Custom_Event_Property_Key1": @"Custom_Event_Property_val1"
+        };
+        [event logEventWithCompletion:^(BOOL success, NSError * _Nullable error) {
+            if (success) {
+                [self showAlert:@"Succesfully logged custom event" withDescription:@""];
+            } else {
+                [self showAlert:@"Error sending custom event:" withDescription:error.description];
+            }
+        }];
+    }]];
+
     [actionSheet addAction:[UIAlertAction actionWithTitle:@"Dismiss" style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
         NSLog(@"Content Event action sheet dismissed.");
     }]];
-    
+
     [self presentViewController:actionSheet animated:YES completion:nil];
 }
 
 
 
 - (IBAction)viewFirstReferringParamsButtonTouchUpInside:(id)sender {
-    Branch *branch = [Branch getInstance];
+    Branch *branch = [Branch sharedInstance];
     [self performSegueWithIdentifier:@"ShowLogOutput" sender:[[branch getFirstReferringParams] description]];
     NSLog(@"Branch TestBed: FirstReferringParams:\n%@", [[branch getFirstReferringParams] description]);
 }
 
 
 - (IBAction)viewLatestReferringParamsButtonTouchUpInside:(id)sender {
-    Branch *branch = [Branch getInstance];
+    Branch *branch = [Branch sharedInstance];
     [self performSegueWithIdentifier:@"ShowLogOutput" sender:[[branch getLatestReferringParams] description]];
     NSLog(@"Branch TestBed: LatestReferringParams:\n%@", [[branch getLatestReferringParams] description]);
 }
@@ -482,7 +509,7 @@ bool hasSetPartnerParams = false;
 
 - (IBAction) openBranchLinkInApp:(id)sender {
     NSURL *URL = [NSURL URLWithString:@"https://bnctestbed.app.link/izPBY2xCqF"];
-    [[Branch getInstance] handleDeepLink:URL];
+    [[Branch sharedInstance] handleDeepLink:URL];
 }
 
 #pragma mark - Commerce Events
@@ -820,7 +847,7 @@ static inline void BNCPerformBlockOnMainThread(void (^ block)(void)) {
 - (IBAction)togglePartnerParams:(id)sender {
     if (hasSetPartnerParams) {
         NSLog(@"Cleared Partner Params");
-        [[Branch getInstance] clearPartnerParameters];
+        [[Branch sharedInstance] clearPartnerParameters];
         [self showAlert:@"Cleared Partner Parameters" withDescription:@""];
         hasSetPartnerParams = false;
         [self.setParnerParamsButton setTitle:@"Set Partner Params" forState:UIControlStateNormal];
@@ -829,8 +856,8 @@ static inline void BNCPerformBlockOnMainThread(void (^ block)(void)) {
         }
     } else {
         NSLog(@"Set Partner Params");
-        [[Branch getInstance] addFacebookPartnerParameterWithName:@"ph" value:@"b90598b67534f00b1e3e68e8006631a40d24fba37a3a34e2b84922f1f0b3b29b"];
-        [[Branch getInstance] addFacebookPartnerParameterWithName:@"em" value:@"11234e56af071e9c79927651156bd7a10bca8ac34672aba121056e2698ee7088"];
+        [[Branch sharedInstance] addFacebookPartnerParameterWithName:@"ph" value:@"b90598b67534f00b1e3e68e8006631a40d24fba37a3a34e2b84922f1f0b3b29b"];
+        [[Branch sharedInstance] addFacebookPartnerParameterWithName:@"em" value:@"11234e56af071e9c79927651156bd7a10bca8ac34672aba121056e2698ee7088"];
         [self showAlert:@"Set Partner Parameters" withDescription:@""];
         hasSetPartnerParams = true;
         [self.setParnerParamsButton setTitle:@"Clear Partner Params" forState:UIControlStateNormal];
@@ -853,26 +880,6 @@ static inline void BNCPerformBlockOnMainThread(void (^ block)(void)) {
     NSString *logFileContents = [NSString stringWithContentsOfFile:appDelegate.logFileName encoding:NSUTF8StringEncoding error:nil];
     NSLog(@"Got log file (%@) contents: %@", appDelegate.logFileName, logFileContents);
     logOutputViewController.logOutput = [NSString stringWithFormat:@"%@", logFileContents];
-}
-
-- (IBAction)disableTracking:(id)sender {
-    
-    NSString *title = [self.disableTrackingButton titleForState:UIControlStateNormal];
-    
-    if ([title isEqualToString:@"Disable Tracking"]) {
-        [Branch setTrackingDisabled:YES];
-        [self.disableTrackingButton setTitle:@"Enable Tracking" forState:UIControlStateNormal];
-        if (@available(iOS 13.0, macCatalyst 13.1, *)) {
-            [self.disableTrackingButton setImage:[UIImage systemImageNamed:@"eye.fill"] forState:UIControlStateNormal];
-        }
-    } else {
-        [Branch setTrackingDisabled:NO];
-        [self.disableTrackingButton setTitle:@"Disable Tracking" forState:UIControlStateNormal];
-        if (@available(iOS 13.0, macCatalyst 13.1, *)) {
-            [self.disableTrackingButton setImage:[UIImage systemImageNamed:@"eye.slash.fill"] forState:UIControlStateNormal];
-        }
-    }
-    
 }
 
 - (IBAction)createQRCode:(id)sender {
@@ -926,6 +933,26 @@ static inline void BNCPerformBlockOnMainThread(void (^ block)(void)) {
     [bsl presentActivityViewControllerFromViewController:self anchor:nil];
 }
 
+- (IBAction)requestDeepLinkTouchUpInside:(id)sender {
+    NSLog(@"Branch TestBed: Requesting DeepLink.");
+
+    NSString *deepLinkUrl = @"https://bnctestbed.app.link/7HTLJ2jXi3b";
+
+    [[Branch sharedInstance] requestDeepLinkData:deepLinkUrl callback:^(NSDictionary *params, NSError *error) {
+        if (error == nil) {
+            if (params != nil) {
+                NSLog(@"Deep Link Params: %@", params);
+
+                // Access specific values
+                NSString *campaign = params[@"~campaign"];
+                NSLog(@"Campaign Name: %@", campaign);
+            }
+        } else {
+            NSLog(@"Deep Link Error: %@ (Code: %ld)", [error localizedDescription], (long)[error code]);
+        }
+    }];
+}
+
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
     return 50;
 }
@@ -946,17 +973,17 @@ static inline void BNCPerformBlockOnMainThread(void (^ block)(void)) {
             content.title = @"Branch Test Notification";
             content.body = [NSString stringWithFormat:@"Tap to test deep link: %@", url];
             content.userInfo = @{@"branch": url};
-            
+
             UNTimeIntervalNotificationTrigger *trigger = [UNTimeIntervalNotificationTrigger triggerWithTimeInterval:5 repeats:NO];
             UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:@"BranchTestNotification" content:content trigger:trigger];
-            
+
             [center addNotificationRequest:request withCompletionHandler:nil];
         }
     }];
 }
 
 - (IBAction)pluginNotifyInit:(id)sender {
-    [[Branch getInstance] notifyNativeToInit];
+    [[Branch sharedInstance] notifyNativeToInit];
     [self showAlert:@"notifyNativeToInit called" withDescription:@"The SDK should now complete initialization."];
 }
 

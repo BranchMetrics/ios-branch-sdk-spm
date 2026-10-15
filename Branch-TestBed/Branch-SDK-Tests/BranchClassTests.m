@@ -7,8 +7,8 @@
 //
 
 #import <XCTest/XCTest.h>
-#import <CoreSpotlight/CoreSpotlight.h>
-#import "Branch.h"
+@import BranchSDK;
+#import "Branch+Configuration.h"
 #import "BranchConstants.h"
 #import "BNCPasteboard.h"
 #import "BNCAppGroupsData.h"
@@ -19,17 +19,23 @@
 - (void)writeObjectToDefaults:(NSString *)key value:(NSObject *)value;
 @end
 
+@interface Branch (BranchClassTest)
+// Test-only reset for the +initialize: reinitialization guard (file-private in Branch.m).
++ (void)resetInitializationGuardForTesting;
+@end
+
 @interface BranchClassTests : XCTestCase
 @property (nonatomic, strong) Branch *branch;
-@property (nonatomic, strong, readwrite) BNCPreferenceHelper *prefHelper;
 @end
 
 @implementation BranchClassTests
 
 - (void)setUp {
     [super setUp];
-    self.branch = [Branch getInstance];
-    self.prefHelper = [BNCPreferenceHelper sharedInstance];
+    // +sharedInstance requires the SDK to be initialized first. Reset the guard so each test can
+    // (re)initialize the singleton, then configure it via the canonical entry point.
+    [Branch resetInitializationGuardForTesting];
+    self.branch = [Branch initialize:[[BranchConfiguration alloc] initWithKey:@"key_live_hcnegAumkH7Kv18M8AOHhfgiohpXq5tB"]];
 }
 
 - (void)tearDown {
@@ -38,13 +44,8 @@
 }
 
 - (void)testIsUserIdentified {
-    [self.branch setIdentity: @"userId"];
+    [self.branch setUserAlias: @"userId" completion:nil];
     XCTAssertTrue([self.branch isUserIdentified], @"User should be identified");
-}
-
-- (void)testDisableAdNetworkCallouts {
-    [self.branch disableAdNetworkCallouts:YES];
-    XCTAssertTrue([BNCPreferenceHelper sharedInstance].disableAdNetworkCallouts, @"AdNetwork callouts should be disabled");
 }
 
 - (void)testSetNetworkTimeout {
@@ -66,16 +67,6 @@
     [self.branch setRequestMetadataKey:@"key" value:@"value"];
     NSDictionary *metadata = [BNCPreferenceHelper sharedInstance].requestMetadataDictionary;
     XCTAssertEqualObjects(metadata[@"key"], @"value");
-}
-
-- (void)testSetTrackingDisabled {
-    XCTAssertFalse([BNCPreferenceHelper sharedInstance].trackingDisabled);
-
-    [Branch setTrackingDisabled:YES];
-    XCTAssertTrue([BNCPreferenceHelper sharedInstance].trackingDisabled);
-
-    [Branch setTrackingDisabled:NO];
-    XCTAssertFalse([BNCPreferenceHelper sharedInstance].trackingDisabled);
 }
 
 - (void)testCheckPasteboardOnInstall {
@@ -208,37 +199,29 @@
     XCTAssertEqualObjects(result.campaign, @"latest campaign");
 }
 
-- (void)testGetShortURL {      
-    NSString *shortURL = [self.branch getShortURL];
-    XCTAssertNotNil(shortURL, @"URL should not be nil");
-    XCTAssertTrue([shortURL hasPrefix:@"https://"], @"URL should start with 'https://'");
-}
-
-- (void)testGetLongURLWithParamsAndChannelAndTagsAndFeatureAndStageAndAlias {
-    NSDictionary *params = @{@"key": @"value"};
-    NSString *channel = @"channel1";
-    NSArray *tags = @[@"tag1", @"tag2"];
-    NSString *feature = @"feature1";
-    NSString *stage = @"stage1";
-    NSString *alias = @"alias1";
-    
-    NSString *generatedURL = [self.branch getLongURLWithParams:params andChannel:channel andTags:tags andFeature:feature andStage:stage andAlias:alias];
-    NSString *expectedURL = @"https://bnc.lt/a/key_live_hcnegAumkH7Kv18M8AOHhfgiohpXq5tB?tags=tag1&tags=tag2&alias=alias1&feature=feature1&stage=stage1&source=ios&data=eyJrZXkiOiJ2YWx1ZSJ9";
-    
-    XCTAssertEqualObjects(generatedURL, expectedURL, @"URL should match the expected format");
-}
-
-- (void)testSetDMAParamsForEEA {
+- (void)testDMAParamsWriteThroughToPreferences {
+    // DMA parameters are config-only (no runtime setter). This asserts the preference-write mechanism that
+    // +[Branch initialize:] uses when applying a BranchConfiguration.dmaParameters value.
+    //
+    // This target is hosted by Branch-TestBed, whose AppDelegate sets config.dmaParameters before any
+    // test runs, so the defaults arrive already populated. Clear them first.
+    [self clearDMAParameterDefaults];
     XCTAssertFalse([[BNCPreferenceHelper sharedInstance] eeaRegionInitialized]);
-    
-    [Branch setDMAParamsForEEA:FALSE AdPersonalizationConsent:TRUE AdUserDataUsageConsent:TRUE];
+
+    [BNCPreferenceHelper sharedInstance].eeaRegion = FALSE;
+    [BNCPreferenceHelper sharedInstance].adPersonalizationConsent = TRUE;
+    [BNCPreferenceHelper sharedInstance].adUserDataUsageConsent = TRUE;
     XCTAssertTrue([[BNCPreferenceHelper sharedInstance] eeaRegionInitialized]);
     XCTAssertFalse([BNCPreferenceHelper sharedInstance].eeaRegion);
     XCTAssertTrue([BNCPreferenceHelper sharedInstance].adPersonalizationConsent);
     XCTAssertTrue([BNCPreferenceHelper sharedInstance].adUserDataUsageConsent);
 
-    // Manually clear values after testing
-    // By design, this API is meant to be set once and always set. However, in a test scenario it needs to be cleared.
+    [self clearDMAParameterDefaults];
+}
+
+// By design, DMA parameters are meant to be set once and always set. In a test scenario they need to
+// be cleared, which only the private defaults writer can do.
+- (void)clearDMAParameterDefaults {
     [[BNCPreferenceHelper sharedInstance] writeObjectToDefaults:@"bnc_dma_eea" value:nil];
     [[BNCPreferenceHelper sharedInstance] writeObjectToDefaults:@"bnc_dma_ad_personalization" value:nil];
     [[BNCPreferenceHelper sharedInstance] writeObjectToDefaults:@"bnc_dma_ad_user_data" value:nil];
@@ -246,7 +229,7 @@
 
 - (void)testSetConsumerProtectionAttributionLevel {
     // Set to Reduced and check
-    Branch *branch = [Branch getInstance];
+    Branch *branch = [Branch sharedInstance];
     [branch setConsumerProtectionAttributionLevel:BranchAttributionLevelReduced];
     XCTAssertEqual([BNCPreferenceHelper sharedInstance].attributionLevel, BranchAttributionLevelReduced);
     
@@ -262,102 +245,6 @@
     [branch setConsumerProtectionAttributionLevel:BranchAttributionLevelFull];
     XCTAssertEqual([BNCPreferenceHelper sharedInstance].attributionLevel, BranchAttributionLevelFull);
     
-}
-
-- (void)testBranchSetSDKWaitTimeForThirdPartyAPIs {
-    // Test Branch instance method for setting timeout
-    NSTimeInterval testTimeout = 2.0;
-    [Branch setSDKWaitTimeForThirdPartyAPIs:testTimeout];
-    
-    // Verify it was set in the preference helper
-    XCTAssertEqual(self.prefHelper.thirdPartyAPIsWaitTime, testTimeout,
-                   @"Branch setSDKWaitTimeForThirdPartyAPIs should update preference helper");
-}
-
-- (void)testBranchSetSDKWaitTimeForThirdPartyAPIsMultipleValues {
-    // Test setting multiple different values
-    NSArray *testValues = @[@0.5, @1.0, @1.5, @3.0, @5.0];
-    
-    for (NSNumber *timeoutValue in testValues) {
-        NSTimeInterval timeout = [timeoutValue doubleValue];
-        [Branch setSDKWaitTimeForThirdPartyAPIs:timeout];
-        
-        XCTAssertEqual(self.prefHelper.thirdPartyAPIsWaitTime, timeout,
-                       @"Branch setSDKWaitTimeForThirdPartyAPIs should handle value %.1f", timeout);
-    }
-}
-
-- (void)testTimeoutIntegrationWithPreferenceHelper {
-    // Test that Branch and PreferenceHelper work together correctly
-    NSTimeInterval branchTimeout = 1.8;
-    NSTimeInterval directTimeout = 2.3;
-    
-    // Set via Branch
-    [Branch setSDKWaitTimeForThirdPartyAPIs:branchTimeout];
-    XCTAssertEqual(self.prefHelper.thirdPartyAPIsWaitTime, branchTimeout,
-                   @"Wait Time set via Branch should be readable from PreferenceHelper");
-    
-    // Set directly on PreferenceHelper
-    self.prefHelper.thirdPartyAPIsWaitTime = directTimeout;
-    XCTAssertEqual(self.prefHelper.thirdPartyAPIsWaitTime, directTimeout,
-                   @"Wait time set directly should be readable via Branch");
-}
-
-- (void)testTimeoutValueConsistency {
-    // Test that the same instance maintains consistent values
-    NSTimeInterval testTimeout = 1.25;
-    
-    [Branch setSDKWaitTimeForThirdPartyAPIs:testTimeout];
-    
-    // Read multiple times to ensure consistency
-    for (int i = 0; i < 5; i++) {
-        XCTAssertEqual(self.prefHelper.thirdPartyAPIsWaitTime, testTimeout,
-                       @"Timeout value should remain consistent across multiple reads");
-    }
-}
-
-- (void)testBranchSetSDKWaitTimeForThirdPartyAPIsInvalidLowValues {
-
-    NSArray *invalidLowValues = @[@0.0, @-1.0, @-0.5];
-    NSTimeInterval originalTimeout = [BNCPreferenceHelper sharedInstance].thirdPartyAPIsWaitTime;
-    
-    for (NSNumber *timeoutValue in invalidLowValues) {
-        NSTimeInterval timeout = [timeoutValue doubleValue];
-        [Branch setSDKWaitTimeForThirdPartyAPIs:timeout];
-        XCTAssertEqual([BNCPreferenceHelper sharedInstance].thirdPartyAPIsWaitTime, originalTimeout,
-                       @"Branch setSDKWaitTimeForThirdPartyAPIs should reject invalid low value %.3f", timeout);
-    }
-}
-
-- (void)testBranchsetSDKWaitTimeForThirdPartyAPIsInvalidHighValues {
-
-    NSArray *invalidHighValues = @[@10.1, @15.0, @30.0, @60.0];
-    NSTimeInterval originalTimeout = [BNCPreferenceHelper sharedInstance].thirdPartyAPIsWaitTime;
-    
-    for (NSNumber *timeoutValue in invalidHighValues) {
-        NSTimeInterval timeout = [timeoutValue doubleValue];
-        [Branch setSDKWaitTimeForThirdPartyAPIs:timeout];
-        XCTAssertEqual([BNCPreferenceHelper sharedInstance].thirdPartyAPIsWaitTime, originalTimeout,
-                       @"Branch setSDKWaitTimeForThirdPartyAPIs should reject invalid high value %.3f", timeout);
-    }
-}
-
-- (void)testBranchSetSDKWaitTimeForThirdPartyAPIsBoundaryValues {
-    
-    // Test exactly 10.0 (should be valid)
-    [Branch setSDKWaitTimeForThirdPartyAPIs:10.0];
-    XCTAssertEqual([BNCPreferenceHelper sharedInstance].thirdPartyAPIsWaitTime, 10.0,
-                   @"Timeout of exactly 10.0 seconds should be valid");
-    
-    // Test just over 10.0 (should be invalid)
-    [Branch setSDKWaitTimeForThirdPartyAPIs:10.0001];
-    XCTAssertEqual([BNCPreferenceHelper sharedInstance].thirdPartyAPIsWaitTime, 10.0,
-                   @"Timeout of 10.0001 seconds should be rejected");
-    
-    // Test very small positive value (should be valid)
-    [Branch setSDKWaitTimeForThirdPartyAPIs:0.0001];
-    XCTAssertEqual([BNCPreferenceHelper sharedInstance].thirdPartyAPIsWaitTime, 0.0001,
-                   @"Very small positive timeout should be valid");
 }
 
 - (void)testSetAnonID {
@@ -455,76 +342,6 @@
     NSString *finalAnonID = [BNCPreferenceHelper sharedInstance].anonID;
     XCTAssertTrue([finalAnonID isEqualToString:anonID1] || [finalAnonID isEqualToString:anonID2],
                   @"One of the anonID values should be set");
-}
-
-- (void)testHandleDeepLink_UniversalLinkWithBranchReferrer_ReturnsYes {
-    // Universal link path: handleDeepLink -> handleUniversalDeepLink_private -> isBranchLink.
-    // The link is not on a Branch domain, but carries the _branch_referrer param that Branch
-    // appends to third-party/redirected links, so it should be recognized as a Branch link.
-    NSString *urlString = @"https://open.testdomain.com/track/1a2b3c4d5e6f7g8h9i0jkl?si=AbCdEfGhIjKlMnOpQrStUv&nd=1&utm_medium=organic&_branch_referrer=H4sIAAAAAAAAA1234567890abcdefTESTREFERRERVALUE%3D%3D&product=open&%24full_url=https%3A%2F%2Fopen.testdomain.com%2Ftrack%2F1a2b3c4d5e6f7g8h9i0jkl%3Fsi%3DAbCdEfGhIjKlMnOpQrStUv&feature=organic&_branch_match_id=1234567890123456789";
-    NSURL *url = [NSURL URLWithString:urlString];
-
-    BOOL result = [self.branch handleDeepLink:url];
-    XCTAssertTrue(result, @"handleDeepLink should return YES for a universal link containing the _branch_referrer param");
-}
-
-- (void)testHandleDeepLink_URISchemeWithBranchReferrer_ReturnsYes {
-    // URI scheme path: handleDeepLink -> handleSchemeDeepLink_private.
-    // The link is not on a Branch domain, but carries the _branch_referrer param that Branch
-    // appends to third-party/redirected links, so it should be recognized as a Branch link.
-    
-    NSString *urlString = @"testapp://open/track/1a2b3c4d5e6f7g8h9i0jkl?si=AbCdEfGhIjKlMnOpQrStUv&nd=1&utm_medium=organic&_branch_referrer=H4sIAAAAAAAAA1234567890abcdefTESTREFERRERVALUE%3D%3D&product=open&feature=organic&_branch_match_id=1234567890123456789";
-    NSURL *url = [NSURL URLWithString:urlString];
-
-    BOOL result = [self.branch handleDeepLink:url];
-    XCTAssertTrue(result, @"handleDeepLink should return YES for a URI scheme link containing the _branch_referrer param");
-}
-
-- (void)testIsBranchLink_NilURLString_ReturnsNo {
-    // BNCPasteboard passes UIPasteboard.URL.absoluteString, which is nil when hasURLs is YES but
-    // the item does not coerce to an NSURL. Parsing a nil string raises NSInvalidArgumentException.
-    NSString *urlString = nil;
-    XCTAssertNoThrow([Branch isBranchLink:urlString]);
-    XCTAssertFalse([Branch isBranchLink:urlString]);
-}
-
-- (void)testIsBranchLink_NonStringValue_ReturnsNo {
-    // userActivity.userInfo is untyped, so a non-string value can reach isBranchLink.
-    // containsString: would raise "unrecognized selector" on it.
-    id nonString = @42;
-    XCTAssertNoThrow([Branch isBranchLink:nonString]);
-    XCTAssertFalse([Branch isBranchLink:nonString]);
-}
-
-- (void)testIsBranchLink_EmptyURLString_ReturnsNo {
-    XCTAssertFalse([Branch isBranchLink:@""]);
-}
-
-- (void)testIsBranchLink_MalformedURLString_ReturnsNo {
-    // componentsWithString: returns nil here rather than raising, so this asserts the loop
-    // over a nil queryItems stays a no-op.
-    XCTAssertNoThrow([Branch isBranchLink:@"ht tp://%%%"]);
-    XCTAssertFalse([Branch isBranchLink:@"ht tp://%%%"]);
-}
-
-- (void)testIsBranchLink_NonBranchURLString_ReturnsNo {
-    XCTAssertFalse([Branch isBranchLink:@"https://example.com/products/42?utm_source=email"]);
-}
-
-- (void)testIsBranchLink_BranchReferrerParam_ReturnsYes {
-    // Not on a Branch domain, so this only passes if the query items are parsed.
-    XCTAssertTrue([Branch isBranchLink:@"https://example.com/products/42?utm_source=email&_branch_referrer=H4sIAAAA"]);
-}
-
-- (void)testIsBranchLink_BranchReferrerSubstringParam_ReturnsNo {
-    // "branch_referrer" is not "_branch_referrer".
-    XCTAssertFalse([Branch isBranchLink:@"https://example.com/products/42?branch_referrer=H4sIAAAA"]);
-}
-
-- (void)testContinueUserActivity_MissingSpotlightIdentifier_DoesNotThrow {
-    NSUserActivity *activity = [[NSUserActivity alloc] initWithActivityType:@"io.branch.testActivity"];
-    activity.userInfo = @{};
-    XCTAssertNoThrow([self.branch continueUserActivity:activity]);
 }
 
 @end

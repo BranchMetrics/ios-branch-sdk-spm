@@ -9,7 +9,7 @@
 #import <XCTest/XCTest.h>
 #import "BNCPreferenceHelper.h"
 #import "BNCEncodingUtils.h"
-#import "Branch.h"
+@import BranchSDK;
 #import "BNCConfig.h"
 
 @interface BNCPreferenceHelper()
@@ -38,7 +38,6 @@
     XCTAssertEqual(self.prefHelper.timeout, 5.5);
     XCTAssertEqual(self.prefHelper.retryInterval, 0);
     XCTAssertEqual(self.prefHelper.retryCount, 3);
-    XCTAssertFalse(self.prefHelper.disableAdNetworkCallouts);
 }
 
 - (void)testPreferenceSets {
@@ -334,36 +333,10 @@
     XCTAssertEqual(initialDictCount, postActionDictCount);
 }
 
-- (void)testSetLimitFacebookTracking {
-    BOOL expectedValue = YES;
-    
-    [self.prefHelper setLimitFacebookTracking:expectedValue];
-    
-    BOOL storedValue = [self.prefHelper limitFacebookTracking];
-    
-    XCTAssertEqual(expectedValue, storedValue);
-}
-
-- (void)testSetTrackingDisabled_YES {
-    [self.prefHelper setTrackingDisabled:YES];
-
-    BOOL storedValue = [self.prefHelper trackingDisabled];
-    XCTAssertTrue(storedValue);
-    [self.prefHelper setTrackingDisabled:NO];
-}
-
-- (void)testSetTrackingDisabled_NO {
-    [self.prefHelper setTrackingDisabled:NO];
-    
-    BOOL storedValue = [self.prefHelper trackingDisabled];
-    XCTAssertFalse(storedValue);
-}
-
 // TODO: rethink this test as these values are not set in a freshly instantiated prefHelper
 - (void)testClearTrackingInformation {
     [self.prefHelper clearTrackingInformation];
     
-    XCTAssertNil(self.prefHelper.sessionID);
     XCTAssertNil(self.prefHelper.linkClickIdentifier);
     XCTAssertNil(self.prefHelper.spotlightIdentifier);
     XCTAssertNil(self.prefHelper.referringURL);
@@ -376,22 +349,19 @@
     XCTAssertNil(self.prefHelper.previousAppBuildDate);
     XCTAssertEqual(self.prefHelper.requestMetadataDictionary.count, 0);
     XCTAssertNil(self.prefHelper.lastStrongMatchDate);
-    XCTAssertNil(self.prefHelper.userIdentity);
+    XCTAssertNil(self.prefHelper.userAlias);
     XCTAssertNil(self.prefHelper.referringURLQueryParameters);
     XCTAssertNil(self.prefHelper.anonID);
 }
 
 - (void)testSaveBranchAnalyticsData {
-    NSString *dummySessionID = @"testSession123";
     NSDictionary *dummyAnalyticsData = @{ @"key1": @"value1", @"key2": @"value2" };
-    
-    self.prefHelper.sessionID = dummySessionID;
     
     [self.prefHelper saveBranchAnalyticsData:dummyAnalyticsData];
     
     NSMutableDictionary *retrievedData = [self.prefHelper getBranchAnalyticsData];
     
-    NSArray *viewDataArray = [retrievedData objectForKey:dummySessionID];
+    NSArray *viewDataArray = [retrievedData objectForKey:@"bnc_branch_analytics_key"];
     XCTAssertNotNil(viewDataArray);
     XCTAssertEqual(viewDataArray.count, 1);
     XCTAssertEqualObjects(viewDataArray.firstObject, dummyAnalyticsData);
@@ -434,6 +404,33 @@
     self.prefHelper.thirdPartyAPIsWaitTime = testTimeout3;
     XCTAssertEqual(self.prefHelper.thirdPartyAPIsWaitTime, testTimeout3,
                    @"Third party APIs timeout should support small values");
+}
+
+- (void)testSetConsumerProtectionAttributionLevel_FULL {
+    [self.prefHelper setAttributionLevel:BranchAttributionLevelFull];
+    BOOL storedValue = [[self.prefHelper attributionLevel] isEqualToString:@"FULL"];
+    XCTAssertTrue(storedValue);
+}
+
+- (void)testSetConsumerProtectionAttributionLevel_REDUCED {
+    [self.prefHelper setAttributionLevel:BranchAttributionLevelReduced];
+    BOOL storedValue = [[self.prefHelper attributionLevel] isEqualToString:@"REDUCED"];
+    XCTAssertTrue(storedValue);
+    [self.prefHelper setAttributionLevel:BranchAttributionLevelFull];
+}
+
+- (void)testSetConsumerProtectionAttributionLevel_MINIMAL {
+    [self.prefHelper setAttributionLevel:BranchAttributionLevelMinimal];
+    BOOL storedValue = [[self.prefHelper attributionLevel] isEqualToString:@"MINIMAL"];
+    XCTAssertTrue(storedValue);
+    [self.prefHelper setAttributionLevel:BranchAttributionLevelFull];
+}
+
+- (void)testSetConsumerProtectionAttributionLevel_NONE {
+    [self.prefHelper setAttributionLevel:BranchAttributionLevelNone];
+    BOOL storedValue = [[self.prefHelper attributionLevel] isEqualToString:@"NONE"];
+    XCTAssertTrue(storedValue);
+    [self.prefHelper setAttributionLevel:BranchAttributionLevelFull];
 }
 
 

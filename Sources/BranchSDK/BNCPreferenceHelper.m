@@ -17,7 +17,7 @@
 
 static const NSTimeInterval DEFAULT_TIMEOUT = 5.5;
 static const NSTimeInterval DEFAULT_THIRD_PARTY_APIS_TIMEOUT = 0.5; // 500ms default
-static const NSTimeInterval DEFAULT_RETRY_INTERVAL = 0;
+static const NSTimeInterval DEFAULT_RETRY_INTERVAL = 1.0;
 static const NSInteger DEFAULT_RETRY_COUNT = 3;
 static const NSTimeInterval DEFAULT_REFERRER_GBRAID_WINDOW = 2592000; // 30 days = 2,592,000 seconds
 static const NSTimeInterval DEFAULT_ODM_INFO_VALIDITY_WINDOW = 15552000; // 180 days = 15,552,000 seconds
@@ -33,7 +33,6 @@ static NSString * const BRANCH_PREFS_KEY_PATTERN_LIST_URL = @"bnc_pattern_list_u
 static NSString * const BRANCH_PREFS_KEY_RANDOMIZED_DEVICE_TOKEN = @"bnc_randomized_device_token";
 static NSString * const BRANCH_PREFS_KEY_RANDOMIZED_BUNDLE_TOKEN = @"bnc_randomized_bundle_token";
 
-static NSString * const BRANCH_PREFS_KEY_SESSION_ID = @"bnc_session_id";
 static NSString * const BRANCH_PREFS_KEY_IDENTITY = @"bnc_identity";
 static NSString * const BRANCH_PREFS_KEY_LINK_CLICK_IDENTIFIER = @"bnc_link_click_identifier";
 static NSString * const BRANCH_PREFS_KEY_SPOTLIGHT_IDENTIFIER = @"bnc_spotlight_identifier";
@@ -100,12 +99,11 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
     lastRunBranchKey = _lastRunBranchKey,
     appVersion = _appVersion,
     randomizedDeviceToken = _randomizedDeviceToken,
-    sessionID = _sessionID,
     spotlightIdentifier = _spotlightIdentifier,
     randomizedBundleToken = _randomizedBundleToken,
     linkClickIdentifier = _linkClickIdentifier,
     userUrl = _userUrl,
-    userIdentity = _userIdentity,
+    userAlias = _userAlias,
     sessionParams = _sessionParams,
     installParams = _installParams,
     universalLinkUrl = _universalLinkUrl,
@@ -164,7 +162,6 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
         _persistPrefsQueue = [[NSOperationQueue alloc] init];
         _persistPrefsQueue.maxConcurrentOperationCount = 1;
 
-        self.disableAdNetworkCallouts = NO;
         self.useStorage = NO;
     }
     return self;
@@ -286,21 +283,6 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
     }
 }
 
-- (NSString *)sessionID {
-    if (!_sessionID) {
-        _sessionID = [self readStringFromDefaults:BRANCH_PREFS_KEY_SESSION_ID];
-    }
-    
-    return _sessionID;
-}
-
-- (void)setSessionID:(NSString *)sessionID {
-    if (sessionID == nil || ![_sessionID isEqualToString:sessionID]) {
-        _sessionID = sessionID;
-        [self writeObjectToDefaults:BRANCH_PREFS_KEY_SESSION_ID value:sessionID];
-    }
-}
-
 - (NSString *)randomizedBundleToken {
     NSString *tmp = [self readStringFromDefaults:BRANCH_PREFS_KEY_RANDOMIZED_BUNDLE_TOKEN];
     
@@ -316,12 +298,12 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
     [self writeObjectToDefaults:BRANCH_PREFS_KEY_RANDOMIZED_BUNDLE_TOKEN value:randomizedBundleToken];
 }
 
-- (NSString *)userIdentity {
+- (NSString *)userAlias {
     return [self readStringFromDefaults:BRANCH_PREFS_KEY_IDENTITY];
 }
 
-- (void)setUserIdentity:(NSString *)userIdentity {
-    [self writeObjectToDefaults:BRANCH_PREFS_KEY_IDENTITY value:userIdentity];
+- (void)setUserAlias:(NSString *)userAlias {
+    [self writeObjectToDefaults:BRANCH_PREFS_KEY_IDENTITY value:userAlias];
 }
 
 - (NSString *)linkClickIdentifier {
@@ -514,18 +496,16 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
 
 - (NSMutableString*) sanitizedMutableBaseURL:(NSString*)baseUrl_ {
     NSMutableString *baseUrl = [baseUrl_ mutableCopy];
-    if (self.trackingDisabled) {
+    if (self.attributionLevelNone) {
         NSString *id_string = [NSString stringWithFormat:@"%%24randomized_bundle_token=%@", self.randomizedBundleToken];
         NSRange range = [baseUrl rangeOfString:id_string];
         if (range.location != NSNotFound) [baseUrl replaceCharactersInRange:range withString:@""];
-    } else
-    if ([baseUrl hasSuffix:@"&"] || [baseUrl hasSuffix:@"?"]) {
-    } else
-    if ([baseUrl containsString:@"?"]) {
-        [baseUrl appendString:@"&"];
     }
-    else {
-        [baseUrl appendString:@"?"];
+
+    // Callers append query parameters straight onto the result, so the separator is required
+    // regardless of attribution level.
+    if (![baseUrl hasSuffix:@"&"] && ![baseUrl hasSuffix:@"?"]) {
+        [baseUrl appendString:([baseUrl containsString:@"?"] ? @"&" : @"?")];
     }
     return baseUrl;
 }
@@ -581,18 +561,6 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
     }
 }
 
-- (BOOL) limitFacebookTracking {
-    @synchronized (self) {
-        return [self readBoolFromDefaults:@"_limitFacebookTracking"];
-    }
-}
-
-- (void) setLimitFacebookTracking:(BOOL)limitFacebookTracking {
-    @synchronized (self) {
-        [self writeBoolToDefaults:@"_limitFacebookTracking" value:limitFacebookTracking];
-    }
-}
-
 - (NSDate*) previousAppBuildDate {
     @synchronized (self) {
         NSDate *date = (NSDate*) [self readObjectFromDefaults:@"_previousAppBuildDate"];
@@ -643,22 +611,6 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
 - (void) setDropURLOpen:(BOOL)value {
     @synchronized(self) {
         [self writeBoolToDefaults:@"dropURLOpen" value:value];
-    }
-}
-
-- (BOOL) trackingDisabled {
-    @synchronized(self) {
-        NSNumber *b = (id) [self readObjectFromDefaults:@"trackingDisabled"];
-        if ([b isKindOfClass:NSNumber.class]) return [b boolValue];
-        return false;
-    }
-}
-
-- (void) setTrackingDisabled:(BOOL)disabled {
-    @synchronized(self) {
-        NSNumber *b = [NSNumber numberWithBool:disabled];
-        [self writeObjectToDefaults:@"trackingDisabled" value:b];
-        if (disabled) [self clearTrackingInformation];
     }
 }
 
@@ -908,7 +860,14 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
 }
 
 - (void)setAttributionLevel:(BranchAttributionLevel)level {
+    if ([level isEqualToString:BranchAttributionLevelNone]) {
+        [self clearTrackingInformation];
+    }
     [self writeObjectToDefaults:BRANCH_PREFS_KEY_ATTRIBUTION_LEVEL value:level];
+}
+
+- (BOOL)attributionLevelNone {
+    return [[self attributionLevel] isEqualToString:BranchAttributionLevelNone];
 }
 
 - (NSString *) uxType {
@@ -955,7 +914,6 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
          self.randomizedDeviceToken = nil;
          self.randomizedBundleToken = nil;
          */
-        self.sessionID = nil;
         self.linkClickIdentifier = nil;
         self.spotlightIdentifier = nil;
         self.referringURL = nil;
@@ -968,7 +926,7 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
         self.previousAppBuildDate = nil;
         self.requestMetadataDictionary = nil;
         self.lastStrongMatchDate = nil;
-        self.userIdentity = nil;
+        self.userAlias = nil;
         self.referringURLQueryParameters = nil;
         self.anonID = nil;
         [[BranchLogger shared] logVerbose:@"Tracking information cleared" error:nil];
@@ -978,18 +936,16 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory_Unthreaded(void);
 #pragma mark - Count Storage
 
 - (void)saveBranchAnalyticsData:(NSDictionary *)analyticsData {
-    if (_sessionID) {
-        if (!_savedAnalyticsData) {
-            _savedAnalyticsData = [self getBranchAnalyticsData];
-        }
-        NSMutableArray *viewDataArray = [_savedAnalyticsData objectForKey:_sessionID];
-        if (!viewDataArray) {
-            viewDataArray = [[NSMutableArray alloc] init];
-            [_savedAnalyticsData setObject:viewDataArray forKey:_sessionID];
-        }
-        [viewDataArray addObject:analyticsData];
-        [self writeObjectToDefaults:BRANCH_PREFS_KEY_ANALYTICAL_DATA value:_savedAnalyticsData];
+    if (!_savedAnalyticsData) {
+        _savedAnalyticsData = [self getBranchAnalyticsData];
     }
+    NSMutableArray *viewDataArray = [_savedAnalyticsData objectForKey:@"bnc_branch_analytics_key"];
+    if (!viewDataArray) {
+        viewDataArray = [[NSMutableArray alloc] init];
+        [_savedAnalyticsData setObject:viewDataArray forKey:@"bnc_branch_analytics_key"];
+    }
+    [viewDataArray addObject:analyticsData];
+    [self writeObjectToDefaults:BRANCH_PREFS_KEY_ANALYTICAL_DATA value:_savedAnalyticsData];
 }
 
 - (void)clearBranchAnalyticsData {

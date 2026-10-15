@@ -15,6 +15,11 @@ FOUNDATION_EXPORT const unsigned char BranchSDKVersionString[];
 
 // In this header, you should import all the public headers of your framework using statements like #import <BranchSDK/PublicHeader.h>
 #import <Branch.h>
+#import <BranchInterface.h>
+#import <BranchAttributionLevel.h>
+#import <BranchConfiguration.h>
+#import <BranchLinkBuilder.h>
+#import <BranchDMAParameters.h>
 #import <BranchPluginSupport.h>
 
 #import <BranchScene.h>
@@ -40,7 +45,6 @@ FOUNDATION_EXPORT const unsigned char BranchSDKVersionString[];
 #endif
 
 // Used by Branch.h for debug and testing APIs. Need to move these.
-#import <BNCInitSessionResponse.h>
 #import <BNCCallbacks.h>
 #import <BNCLinkCache.h>
 #import <BNCPreferenceHelper.h>

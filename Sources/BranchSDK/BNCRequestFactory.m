@@ -31,10 +31,11 @@
 #import "BNCPreferenceHelper.h"
 #import "BNCAppGroupsData.h"
 #import "BNCSKAdNetwork.h"
+
+#import "BranchConfigurationController.h"
 #import "BNCReferringURLUtility.h"
 #import "BNCPasteboard.h"
 #import "BNCODMInfoCollector.h"
-#import "BranchConfigurationController.h"
 
 @interface BNCRequestFactory()
 
@@ -105,11 +106,11 @@
     
 }
 
-// SDK level tracking control
-// When set to YES, only link creation and resolution calls are allowed.
+// SDK attribution level control
+// When YES, only link creation and resolution calls are allowed.
 // NO by default.
-- (BOOL)isTrackingDisabled {
-    return Branch.trackingDisabled;
+- (BOOL)isAttributionLevelNone {
+    return [Branch attributionLevelNone];
 }
 
 - (NSDictionary *)dataForInstallWithURLString:(NSString *)urlString {
@@ -236,11 +237,81 @@
     return json;
 }
 
+- (NSDictionary *)dataForDeepLinkWithURLString:(NSString *)urlString {
+    NSMutableDictionary *json = [[self dataForRequestOpenWithURLString:urlString] mutableCopy];
+    json[@"ios_app_link_url"] = urlString;
+    return json;
+}
+
+- (NSDictionary *)dataForRequestOpenWithURLString:(NSString *)urlString {
+    
+    NSMutableDictionary *json = [NSMutableDictionary new];
+    
+    [self loadDataFromThirdPartyAPIs];
+    
+    // All requests
+    [self addDefaultRequestDataToJSON:json];
+        
+    // All POST requests
+    [self addInstrumentationToJSON:json];
+    
+    // Install, Open and Event
+    [self addMetadataWithSKANMaxTimeToJSON:json];
+    
+    // Open and Event
+    [self addSKANWindowToJSON:json];
+    
+    // All POST requests other than Events
+    [self addSDKVersionToJSON:json];
+    [self addV1DictionaryToJSON:json];
+    
+    // Install and Open
+    [self addDeveloperUserIDToJSON:json];
+    [self addSystemObserverDataToJSON:json];
+    [self addPreferenceHelperDataToJSON:json];
+    [self addPartnerParametersToJSON:json];
+    [self addTimestampsToJSON:json];
+    
+    
+    // Check if the urlString is a valid URL to ensure it's a universal link, not the external intent uri
+    if (urlString) {
+        NSURL *url = [NSURL URLWithString:urlString];
+        if (url && ([url.scheme isEqualToString:@"http"] || [url.scheme isEqualToString:@"https"])) {
+            [self safeSetValue:urlString forKey:BRANCH_REQUEST_KEY_UNIVERSAL_LINK_URL onDict:json];
+        } else {
+            [self safeSetValue:urlString forKey:BRANCH_REQUEST_KEY_EXTERNAL_INTENT_URI onDict:json];
+        }
+    }
+    
+    // Usually sent with install, but retry on open if it didn't get sent
+    [self addAppleAttributionTokenToJSON:json];
+    
+    // Only for opens
+    [self addOpenTokensToJSON:json];
+    [self addLocalURLToOpenJSON:json];
+    
+    // TODO: refactor to simply request values for open
+    [self addReferringURLsToJSON:json forEndpoint:@"/v1/open"];
+    
+    // Add DMA Compliance Params for Google
+    [self addDMAConsentParamsToJSON:json];
+    
+    [self addConsumerProtectionAttributionLevel:json];
+    
+    // Add ODM Data if available
+    [self addODMInfoToJSON:json];
+
+    // Add Enhanced Web UX params
+    [self addWebUXParams:json];
+    
+    return json;
+}
+
 // The event data dictionary is NOT checked or changed
 - (NSDictionary *)dataForEventWithEventDictionary:(NSMutableDictionary *)dictionary {
     
     // Event requests are not valid when tracking is disabled
-    if ([self isTrackingDisabled]) {
+    if ([self isAttributionLevelNone]) {
         return [NSMutableDictionary new];
     }
     
@@ -262,6 +333,8 @@
     [self addV2DictionaryToJSON:json];
     
     // TODO: refactor to simply request values for event
+    // Endpoint *key*, not a URL — BNCReferringURLUtility matches on it to attach gclid/gbraid/sccid.
+    // Wire path moved to v3/events; this must not follow unless those matchers move too.
     [self addReferringURLsToJSON:json forEndpoint:@"/v2/event"];
     
     
@@ -296,7 +369,7 @@
 - (NSDictionary *)dataForLATDWithDataDictionary:(NSMutableDictionary *)dictionary {
     
     // LATD requests are not valid when tracking is disabled
-    if ([self isTrackingDisabled]) {
+    if ([self isAttributionLevelNone]) {
         return [NSMutableDictionary new];
     }
     
@@ -322,7 +395,7 @@
 
 - (void)addOpenTokensToJSON:(NSMutableDictionary *)json {
     // Tokens are not valid when tracking is disabled
-    if ([self isTrackingDisabled]) {
+    if ([self isAttributionLevelNone]) {
         return;
     }
     
@@ -330,17 +403,11 @@
         json[BRANCH_REQUEST_KEY_RANDOMIZED_DEVICE_TOKEN] = self.preferenceHelper.randomizedDeviceToken;
     }
     json[BRANCH_REQUEST_KEY_RANDOMIZED_BUNDLE_TOKEN] = self.preferenceHelper.randomizedBundleToken;
-    
-    // TODO: remove if deprecated
-    // tmp location, it's only on opens like the tokens but it will probably be deleted
-    if (self.preferenceHelper.limitFacebookTracking) {
-        json[@"limit_facebook_tracking"] = (__bridge NSNumber*) kCFBooleanTrue;
-    }
 }
 
 - (void)addShortURLTokensToJSON:(NSMutableDictionary *)json isSpotlightRequest:(BOOL)isSpotlightRequest {
     // Tokens are not valid when tracking is disabled
-    if ([self isTrackingDisabled]) {
+    if ([self isAttributionLevelNone]) {
         return;
     }
     
@@ -348,7 +415,6 @@
     if (!isSpotlightRequest) {
         json[BRANCH_REQUEST_KEY_RANDOMIZED_BUNDLE_TOKEN] = self.preferenceHelper.randomizedBundleToken;
     }
-    json[BRANCH_REQUEST_KEY_SESSION_ID] = self.preferenceHelper.sessionID;
 }
 
 - (void)addPreferenceHelperDataToJSON:(NSMutableDictionary *)json {
@@ -394,7 +460,7 @@
 
 - (void)addPartnerParametersToJSON:(NSMutableDictionary *)json {
     // Partner parameters are not valid when tracking is disabled
-    if ([self isTrackingDisabled]) {
+    if ([self isAttributionLevelNone]) {
         return;
     }
     NSDictionary *partnerParameters = [[BNCPartnerParameters shared] parameterJson];
@@ -462,7 +528,7 @@
 
 - (void)addTimestampsToJSON:(NSMutableDictionary *)json {
     // timestamps are not valid when tracking is disabled
-    if ([self isTrackingDisabled]) {
+    if ([self isAttributionLevelNone]) {
         return;
     }
     
@@ -492,7 +558,7 @@
     json[BRANCH_REQUEST_KEY_REQUEST_CREATION_TIME_STAMP] = self.requestCreationTimeStamp;
     
     // omit field if value is NO
-    if ([self isTrackingDisabled]) {
+    if ([self isAttributionLevelNone]) {
         json[@"tracking_disabled"] = @(1);
     }
 }
@@ -564,7 +630,7 @@
 
 // install and open
 - (void)addDeveloperUserIDToJSON:(NSMutableDictionary *)json {
-    [json bnc_safeSetObject:self.preferenceHelper.userIdentity forKey:@"identity"];
+    [json bnc_safeSetObject:self.preferenceHelper.userAlias forKey:@"identity"];
 }
 
 - (void)addConsumerProtectionAttributionLevel:(NSMutableDictionary *)json {
@@ -598,12 +664,7 @@
     NSMutableDictionary *dictionary = [NSMutableDictionary new];
     @synchronized (self.deviceInfo) {
         [self.deviceInfo checkAdvertisingIdentifier];
-        
-        BOOL disableAdNetworkCallouts = self.preferenceHelper.disableAdNetworkCallouts;
-        if (disableAdNetworkCallouts) {
-            dictionary[@"disable_ad_network_callouts"] = [NSNumber numberWithBool:disableAdNetworkCallouts];
-        }
-        
+
         if (self.preferenceHelper.isDebug) {
             dictionary[@"unidentified_device"] = @(YES);
         } else {
@@ -625,9 +686,6 @@
 
         [dictionary bnc_safeSetObject:self.deviceInfo.optedInStatus forKey:@"opted_in_status"];
 
-        if (self.preferenceHelper.limitFacebookTracking) {
-            dictionary[@"limit_facebook_tracking"] = @(YES);
-        }
         [dictionary bnc_safeSetObject:self.deviceInfo.brandName forKey:@"brand"];
         [dictionary bnc_safeSetObject:self.deviceInfo.modelName forKey:@"model"];
         [dictionary bnc_safeSetObject:self.deviceInfo.osName forKey:@"os"];
@@ -644,7 +702,7 @@
         [dictionary bnc_safeSetObject:[self.deviceInfo connectionType] forKey:@"connection_type"];
         [dictionary bnc_safeSetObject:[self.deviceInfo userAgentString] forKey:@"user_agent"];
 
-        [dictionary bnc_safeSetObject:[BNCPreferenceHelper sharedInstance].userIdentity forKey:@"developer_identity"];
+        [dictionary bnc_safeSetObject:[BNCPreferenceHelper sharedInstance].userAlias forKey:@"developer_identity"];
         
         [dictionary bnc_safeSetObject:[BNCPreferenceHelper sharedInstance].randomizedDeviceToken forKey:@"randomized_device_token"];
 
@@ -673,7 +731,7 @@
     @synchronized (self.deviceInfo) {
         
         // These fields are not necessary for link resolution calls
-        if (![self isTrackingDisabled]) {
+        if (![self isAttributionLevelNone]) {
             [self.deviceInfo checkAdvertisingIdentifier];
             
             // Only include hardware ID fields for Full Attribution Level
@@ -729,11 +787,6 @@
         [self safeSetValue:self.deviceInfo.applicationVersion forKey:@"app_version" onDict:dict];
         [self safeSetValue:self.deviceInfo.pluginName forKey:@"plugin_name" onDict:dict];
         [self safeSetValue:self.deviceInfo.pluginVersion forKey:@"plugin_version" onDict:dict];
-        
-        BOOL disableAdNetworkCallouts = self.preferenceHelper.disableAdNetworkCallouts;
-        if (disableAdNetworkCallouts) {
-            [dict setObject:[NSNumber numberWithBool:disableAdNetworkCallouts] forKey:@"disable_ad_network_callouts"];
-        }
     }
 }
 

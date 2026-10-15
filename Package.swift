@@ -1,40 +1,35 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.9
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 import PackageDescription
 
 let package = Package(
     name: "BranchSDK",
     platforms: [
-        .iOS(.v12),
-        .tvOS(.v12),
+        .iOS(.v15),
+        .tvOS(.v15),
     ],
     products: [
+        // Main product that clients will import
         .library(
             name: "BranchSDK",
-            targets: ["BranchSDK"]),
-    ],
-    dependencies: [
+            targets: ["BranchSDK"]
+        ),
     ],
     targets: [
         .target(
             name: "BranchSDK",
-            path: "Sources",
-            sources: [
-                "BranchSDK/"
-            ],
-            resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy"),
-            ],
-            publicHeadersPath: "BranchSDK/Public/",
+            dependencies: [],
+            path: "Sources/BranchSDK",
+            publicHeadersPath: "Public",
             cSettings: [
-                .headerSearchPath("BranchSDK/Private"),
+                .headerSearchPath("Private"),
             ],
             linkerSettings: [
                 .linkedFramework("CoreServices"),
                 .linkedFramework("SystemConfiguration"),
                 .linkedFramework("WebKit", .when(platforms: [.iOS])),
                 .linkedFramework("CoreSpotlight", .when(platforms: [.iOS])),
-                .linkedFramework("AdServices", .when(platforms: [.iOS]))
+                .linkedFramework("AdServices", .when(platforms: [.iOS])),
             ]
         ),
     ]

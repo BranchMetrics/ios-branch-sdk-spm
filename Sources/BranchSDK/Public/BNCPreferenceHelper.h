@@ -29,14 +29,13 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory(void);
 @property (copy, nonatomic) NSString *randomizedBundleToken;
 @property (copy, nonatomic) NSString *anonID;
 
-@property (copy, nonatomic) NSString *sessionID;
 @property (copy, nonatomic) NSString *linkClickIdentifier;
 @property (copy, nonatomic) NSString *spotlightIdentifier;
 @property (copy, nonatomic) NSString *universalLinkUrl;
 @property (copy, nonatomic) NSString *initialReferrer;
 @property (copy, nonatomic) NSString *userUrl;
 @property (copy, nonatomic) NSString *localUrl;
-@property (copy, nonatomic) NSString *userIdentity;
+@property (copy, nonatomic) NSString *userAlias;
 @property (copy, nonatomic) NSString *sessionParams;
 @property (copy, nonatomic) NSString *installParams;
 @property (assign, nonatomic) BOOL isDebug;
@@ -52,16 +51,12 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory(void);
 @property (copy, nonatomic) NSString *lastSystemBuildVersion;
 @property (copy, nonatomic) NSString *browserUserAgentString;
 @property (copy, nonatomic) NSString *referringURL;
-@property (assign, nonatomic) BOOL limitFacebookTracking;
 @property (strong, nonatomic) NSDate *previousAppBuildDate;
-@property (assign, nonatomic, readwrite) BOOL disableAdNetworkCallouts;
 
 @property (nonatomic, copy, readwrite) NSString *patternListURL;
 @property (strong, nonatomic) NSArray<NSString *> *savedURLPatternList;
 @property (assign, nonatomic) NSInteger savedURLPatternListVersion;
 @property (assign, nonatomic) BOOL dropURLOpen;
-
-@property (assign, nonatomic) BOOL trackingDisabled;
 
 @property (copy, nonatomic) NSString *referrerGBRAID;
 @property (assign, nonatomic) NSTimeInterval referrerGBRAIDValidityWindow;
@@ -82,6 +77,7 @@ NSURL* /* _Nonnull */ BNCURLForBranchDirectory(void);
 @property (assign, nonatomic) BOOL adUserDataUsageConsent;
 
 @property (nonatomic, assign) NSString *attributionLevel;
+@property (nonatomic, assign) BOOL attributionLevelNone;
 
 @property (copy, nonatomic) NSString *uxType;
 @property (strong, nonatomic) NSDate *urlLoadMs;

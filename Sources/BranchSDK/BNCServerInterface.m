@@ -66,14 +66,13 @@
     // TODO: confirm it's ok to send full URL instead of with the domain trimmed off
     self.requestEndpoint = url;
     
-    // Drops non-linking requests when tracking is disabled
-    if (Branch.trackingDisabled) {
+    if ([Branch attributionLevelNone] && ![url containsString:@"/v3/deeplink"]) {
     
         [[BranchLogger shared] logVerbose:[NSString stringWithFormat:@"Tracking is disabled, checking if %@ is linking request.", url] error:nil];
 
         if (![self isLinkingRelatedRequest:url postParams:post]) {
             [[BNCPreferenceHelper sharedInstance] clearTrackingInformation];
-            NSError *error = [NSError branchErrorWithCode:BNCTrackingDisabledError];
+            NSError *error = [NSError branchErrorWithCode:BNCAttributionLevelNoneError];
             [[BranchLogger shared] logWarning:[NSString stringWithFormat:@"Dropping non-linking request"] error:error];
             if (callback) {
                 callback(nil, error);
@@ -130,15 +129,20 @@
             // Retry request if appropriate
             BOOL isRetryableStatusCode = status >= 500 || status < 0 || status == 53;
             if (retryNumber < self.preferenceHelper.retryCount && isRetryableStatusCode) {
-                dispatch_time_t dispatchTime = dispatch_time(DISPATCH_TIME_NOW, self.preferenceHelper.retryInterval * NSEC_PER_SEC);
+                // Exponential backoff: the configured retryInterval is the base delay and is
+                // doubled on each successive attempt (interval, 2x, 4x, …). Out of the box
+                // retryInterval defaults to 1s, so retries fire at 1s/2s/4s; setting it to 0
+                // opts back into immediate retries.
+                NSTimeInterval backoff = [self backoffDelayForRetryNumber:retryNumber];
+                dispatch_time_t dispatchTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(backoff * NSEC_PER_SEC));
                 dispatch_after(dispatchTime, dispatch_get_main_queue(), ^{
                     if (retryHandler) {
-                        [[BranchLogger shared] logDebug: [NSString stringWithFormat:@"Retrying request with HTTP status code %ld", (long)status] error:underlyingError];
+                        [[BranchLogger shared] logDebug: [NSString stringWithFormat:@"Retrying request with HTTP status code %ld after %.2fs (attempt %ld)", (long)status, backoff, (long)(retryNumber + 1)] error:underlyingError];
                         NSURLRequest *retryRequest = retryHandler(retryNumber);
                         [self genericHTTPRequest:retryRequest retryNumber:(retryNumber + 1) callback:callback retryHandler:retryHandler];
                     }
                 });
-                
+
             } else {
                 if (status != 200) {
                     if ([NSError branchDNSBlockingError:underlyingError]) {
@@ -169,9 +173,14 @@
                     }
                 }
 
+                // Classify the delivered error as retryable / non-retryable for the caller. At this
+                // point the SDK's own HTTP retries (if any) have been exhausted, so a transient
+                // network failure is surfaced with BNCErrorIsRetryableKey == YES.
+                NSError *deliveredError = [NSError branchErrorByAnnotatingRetryable:underlyingError];
+
                 // Don't call on the main queue since it might be blocked.
                 if (callback) {
-                    callback(serverResponse, underlyingError);
+                    callback(serverResponse, deliveredError);
                 }
             }
         };
@@ -273,6 +282,17 @@
 }
 
 #pragma mark - Internals
+
+// Exponential backoff for the Nth retry (0-based). Returns the configured base retryInterval
+// scaled by 2^retryNumber, so successive retries wait interval, 2*interval, 4*interval, …
+// A base interval of 0 always returns 0 (immediate retry), opted into explicitly.
+- (NSTimeInterval)backoffDelayForRetryNumber:(NSInteger)retryNumber {
+    NSTimeInterval base = self.preferenceHelper.retryInterval;
+    if (base <= 0 || retryNumber < 0) {
+        return MAX(base, 0);
+    }
+    return base * pow(2.0, (double)retryNumber);
+}
 
 - (NSURLRequest *)prepareGetRequest:(NSDictionary *)params url:(NSString *)url key:(NSString *)key retryNumber:(NSInteger)retryNumber {
 

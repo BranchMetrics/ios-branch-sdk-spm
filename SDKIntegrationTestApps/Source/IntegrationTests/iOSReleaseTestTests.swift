@@ -10,7 +10,7 @@ import XCTest
 @testable import BranchSDK
 
 final class iOSReleaseTestTests: XCTestCase {
-    
+
     private static var testObserver: TestObserver?
 
     override class func setUp() {
@@ -19,7 +19,7 @@ final class iOSReleaseTestTests: XCTestCase {
         XCTestObservationCenter.shared.addTestObserver(testObserver!)
         print("[TestSetup] Test observer registered for enhanced GitHub Actions logging")
     }
-    
+
     override class func tearDown() {
         if let observer = testObserver {
             XCTestObservationCenter.shared.removeTestObserver(observer)
@@ -35,35 +35,42 @@ final class iOSReleaseTestTests: XCTestCase {
     override func tearDownWithError() throws {
         print("[Teardown] Cleaning up test: \(self.name)")
     }
-    
+
     func testDummy() throws {
         print("[Test] Running dummy test")
         XCTAssertTrue(true, "Dummy test should always pass")
         print("[Test] Dummy test completed")
     }
 
-    func testInitSessionAndSetCPPLevel() throws {
-        print("[Test] Starting testInitSessionAndSetCPPLevel")
+    func testRequestDeepLinkDataAndSetCPPLevel() throws {
+        print("[Test] Starting testRequestDeepLinkDataAndSetCPPLevel")
 
+        Branch.enableLogging(at: .verbose, withCallback: { message, logLevel, error in
+            print(message)
+            if let error = error {
+                print(error)
+            }
+        })
         let expectation = expectation(description: "InitSession should complete.")
-
-        let sdk = BranchSDKTest(){  params, error in
-            print(params as? [String: AnyObject] ?? {})
+        // +sharedInstance requires the SDK to be initialized first.
+        Branch.initialize(BranchConfiguration(key: "key_live_ok7NoVhyIh1llbtOW6sfHpbnxBlJjiDp"))
+        Branch.sharedInstance()?.setConsumerProtectionAttributionLevel(BranchAttributionLevel.none)
+        Branch.sharedInstance()?.setConsumerProtectionAttributionLevel(BranchAttributionLevel.full, resetSession:false)
+        let sdk = BranchSDKTest() { params, error in
+            print(params as? [String: AnyObject] ?? [:])
+            print("RequestDeepLinkData callback called.")
             expectation.fulfill()
         }
+
+        waitForExpectations(timeout: 90, handler: nil)
+
         print("Setting CPP Level to none.")
         sdk.setCPPLevel(status: BranchAttributionLevel.none)
-        
+
         let cppLevel = BNCPreferenceHelper.sharedInstance().attributionLevel
-        print("[Test] CPP Level: \(String(describing: cppLevel))")
-        
-        XCTAssertTrue(cppLevel!.isEqual(to: BranchAttributionLevel.none.rawValue) , "Tracking should be disabled (true)")
-        
-        print("[Test] Disabling tracking again...")
-        sdk.setCPPLevel(status: BranchAttributionLevel.full)
-        
-        waitForExpectations(timeout: 180, handler: nil)
-        print("[Test] testInitSessionAndSetCPPLevel completed")
+        XCTAssertNotNil(cppLevel, "CPP level should not be nil")
+        XCTAssertEqual(cppLevel as? String, BranchAttributionLevel.none.rawValue, "CPP level should be none")
+        print("[Test] testRequestDeepLinkDataAndSetCPPLevel completed")
     }
 
 }

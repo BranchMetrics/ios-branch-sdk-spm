@@ -60,7 +60,11 @@ TestBed-GPTDriverTests/
 │   ├── MobileBoost.local.xcconfig  — GITIGNORED, your real key
 │   └── MobileBoost.local.xcconfig.example
 ├── Deterministic/                  — 100% XCUITest, no AI
-│   └── LinkCreationDeterministicTest.swift
+│   ├── LinkCreationDeterministicTest.swift
+│   ├── L1WireValidationTest.swift          ← install capture for the L1 validator
+│   ├── DeepLinkWireValidationTest.swift    ← deeplink capture; own harness run, see
+│   │                                         scripts/README.md "Scenarios"
+│   └── EventAndLinkWireCaptureTest.swift   ← ad-hoc event/link wire survey
 ├── Hybrid/                         — XCUITest actions + AI validation
 │   ├── LinkCreationHybridTest.swift
 │   ├── QRCodeHybridTest.swift
@@ -88,7 +92,7 @@ TestBed-GPTDriverTests/
 ## Dependencies
 
 - Swift Package: `gptd-swift` (≥ 1.9.1, up to next major). Declared in the parent `Branch-TestBed.xcodeproj`.
-- iOS 14.0+ (the minimum platform declared by `gptd-swift`). The host app `Branch-TestBed` still targets iOS 12, so running these tests requires a simulator with iOS ≥ 14.
+- iOS 15.0+, the minimum the host app `Branch-TestBed` targets; running these tests needs a simulator on iOS 15 or later.
 - Runs on simulator only (code signing disabled).
 
 ## Secret management

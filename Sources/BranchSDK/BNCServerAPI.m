@@ -40,15 +40,19 @@
 }
 
 - (NSString *)openServiceURL {
-    return [[self getBaseURL] stringByAppendingString: @"/v1/open"];
+    return [[self getBaseURL] stringByAppendingString: @"/v3/events/open"];
+}
+
+- (NSString *)deepLinkServiceURL {
+    return [[self getBaseURL] stringByAppendingString: @"/v3/deeplink"];
 }
 
 - (NSString *)standardEventServiceURL{
-    return [[self getBaseURL] stringByAppendingString: @"/v2/event/standard"];
+    return [[self getBaseURL] stringByAppendingString: @"/v3/events/standard"];
 }
 
 - (NSString *)customEventServiceURL{
-    return [[self getBaseURL] stringByAppendingString: @"/v2/event/custom"];
+    return [[self getBaseURL] stringByAppendingString: @"/v3/events/custom"];
 }
 
 - (NSString *)linkServiceURL {
