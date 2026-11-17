@@ -680,13 +680,7 @@ static NSString *bnc_branchKey = nil;
 }
 
 + (void)setAnonID:(NSString *)anonID {
-    @synchronized (self) {
-        if (anonID && [anonID isKindOfClass:[NSString class]]) {
-            [BNCPreferenceHelper sharedInstance].anonID = anonID;
-        } else {
-            [[BranchLogger shared] logWarning:@"Invalid anonID provided. Must be a non-nil NSString." error:nil];
-        }
-    }
+    [[BranchLogger shared] logWarning:@"setAnonID: is deprecated and the provided value will not be used. Branch now reads the Meta Anon ID directly from the Meta (Facebook) SDK. Link the Facebook SDK in your app so Branch can fetch it automatically." error:nil];
 }
 
 - (void)setConsumerProtectionAttributionLevel:(BranchAttributionLevel)level {
@@ -854,8 +848,12 @@ static NSString *bnc_branchKey = nil;
 }
 
 - (void)setUrlPatternsToIgnore:(NSArray<NSString*>*)urlsToIgnore {
-    self.userURLFilter = [[BNCURLFilter alloc] init];
-    [self.userURLFilter useCustomPatternList:urlsToIgnore];
+    // Configure the filter fully before publishing it, so readers never see the default list.
+    BNCURLFilter *userURLFilter = [[BNCURLFilter alloc] init];
+    [userURLFilter useCustomPatternList:urlsToIgnore];
+    @synchronized (self) {
+        self.userURLFilter = userURLFilter;
+    }
 }
 
 // This is currently the same as handleDeeplink
@@ -882,7 +880,12 @@ static NSString *bnc_branchKey = nil;
     NSString *pattern = nil;
     pattern = [self.urlFilter patternMatchingURL:url];
     if (!pattern) {
-        pattern = [self.userURLFilter patternMatchingURL:url];
+        // Take a snapshot so a concurrent setUrlPatternsToIgnore: can't release the filter mid-match.
+        BNCURLFilter *userURLFilter = nil;
+        @synchronized (self) {
+            userURLFilter = self.userURLFilter;
+        }
+        pattern = [userURLFilter patternMatchingURL:url];
     }
     if (pattern) {
         self.preferenceHelper.dropURLOpen = YES;
