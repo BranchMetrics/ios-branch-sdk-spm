@@ -620,7 +620,9 @@
             }
         }
         
-        [dictionary bnc_safeSetObject:self.deviceInfo.anonId forKey:@"anon_id"];
+        if ([self shouldIncludeFbSdkAnonId]) {
+            [dictionary bnc_safeSetObject:[self.deviceInfo fbSdkAnonId] forKey:BRANCH_REQUEST_KEY_ANON_ID];
+        }
         [dictionary bnc_safeSetObject:self.deviceInfo.localIPAddress forKey:@"local_ip"];
 
         [dictionary bnc_safeSetObject:self.deviceInfo.optedInStatus forKey:@"opted_in_status"];
@@ -639,6 +641,7 @@
         [dictionary bnc_safeSetObject:self.deviceInfo.screenHeight forKey:@"screen_height"];
         [dictionary bnc_safeSetObject:self.deviceInfo.screenWidth forKey:@"screen_width"];
         [dictionary bnc_safeSetObject:self.deviceInfo.locale forKey:@"locale"];
+        [dictionary bnc_safeSetObject:[self.deviceInfo timezone] forKey:@"timezone"];
         [dictionary bnc_safeSetObject:self.deviceInfo.country forKey:@"country"];
         [dictionary bnc_safeSetObject:self.deviceInfo.language forKey:@"language"];
         [dictionary bnc_safeSetObject:[self.deviceInfo connectionType] forKey:@"connection_type"];
@@ -662,6 +665,14 @@
     [self addConsumerProtectionAttributionLevel:dictionary];
     
     return dictionary;
+}
+
+// Returns NO at attribution level None, YES otherwise or when the level is unset.
+- (BOOL)shouldIncludeFbSdkAnonId {
+    if (![self.preferenceHelper attributionLevelInitialized]) {
+        return YES;
+    }
+    return ![[self.preferenceHelper attributionLevel] isEqualToString:BranchAttributionLevelNone];
 }
 
 // install, open and latd
@@ -698,7 +709,9 @@
                 [self safeSetValue:self.deviceInfo.vendorId forKey:BRANCH_REQUEST_KEY_IOS_VENDOR_ID onDict:dict];
             }
             
-            [self safeSetValue:self.deviceInfo.anonId forKey:@"anon_id" onDict:dict];
+            if ([self shouldIncludeFbSdkAnonId]) {
+                [self safeSetValue:[self.deviceInfo fbSdkAnonId] forKey:BRANCH_REQUEST_KEY_ANON_ID onDict:dict];
+            }
             
             [self safeSetValue:[self.deviceInfo localIPAddress] forKey:@"local_ip" onDict:dict];
             
@@ -714,6 +727,7 @@
         [self safeSetValue:self.deviceInfo.osBuildVersion forKey:@"build" onDict:dict];
         [self safeSetValue:self.deviceInfo.environment forKey:@"environment" onDict:dict];
         [self safeSetValue:self.deviceInfo.locale forKey:@"locale" onDict:dict];
+        [self safeSetValue:[self.deviceInfo timezone] forKey:@"timezone" onDict:dict];
         [self safeSetValue:self.deviceInfo.country forKey:@"country" onDict:dict];
         [self safeSetValue:self.deviceInfo.language forKey:@"language" onDict:dict];
         [self safeSetValue:self.deviceInfo.brandName forKey:BRANCH_REQUEST_KEY_BRAND onDict:dict];
